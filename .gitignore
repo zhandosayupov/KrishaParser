@@ -3,4 +3,4 @@ __pycache__/
 data/
 report.html
 report_*.html
-handoff*handoff-*.md
+handoff*

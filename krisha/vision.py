@@ -5,6 +5,8 @@
 получаем оценку строго по схеме и кладём в таблицу vision.
 """
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -199,24 +201,42 @@ def assess(cfg, con, root, log=print, limit=None):
         "ORDER BY l.price / l.area").fetchall()      # сначала самые дешёвые за м²
     if limit:
         rows = rows[:limit]
-    log(f"Квартир к оценке: {len(rows)} (провайдер {stage['provider']}, модель {stage.get('model')})")
+    threads = stage.get("threads", 1)
+    log(f"Квартир к оценке: {len(rows)} (провайдер {stage['provider']}, "
+        f"модель {stage.get('model')}, потоков: {threads})")
 
-    done = 0
+    # Список фото читаем заранее в главном потоке: с базой работает только он.
+    tasks = []
     for r in rows:
         photos = [Path(root) / p["path"] for p in con.execute(
             "SELECT path FROM photos WHERE listing_id = ? ORDER BY n", (r["id"],))]
         photos = [p for p in photos if p.exists()]
-        if not photos:
-            continue
-        sheets = make_sheets(photos, photos[0].parent / "sheets")
-        prompt = PROMPT.format(facts=_facts(r), description=r["description"] or "текста нет")
+        if photos:
+            tasks.append((r, photos))
+
+    stop = threading.Event()      # поднимается, когда ИИ недоступен (нет входа, кончился лимит)
+
+    def work(r, photos):
+        """Работа одного потока: коллажи + запрос к ИИ. В базу не пишет."""
+        if stop.is_set():
+            return r, photos, None, "остановлено"
         try:
-            a = ask(stage, prompt, sheets, ANSWER_SCHEMA)
+            sheets = make_sheets(photos, photos[0].parent / "sheets")
+            prompt = PROMPT.format(facts=_facts(r), description=r["description"] or "текста нет")
+            return r, photos, ask(stage, prompt, sheets, ANSWER_SCHEMA), None
         except LLMUnavailable as e:
-            log(f"СТОП: {e}. Готово {done}, остальное продолжится при следующем запуске.")
-            return done
+            stop.set()
+            return r, photos, None, f"СТОП: {e}"
         except LLMError as e:
-            log(f"  {r['id']}: пропуск ({e})")
+            return r, photos, None, f"пропуск ({e})"
+
+    done = 0
+    pool = ThreadPoolExecutor(max_workers=threads)
+    for job in as_completed([pool.submit(work, r, photos) for r, photos in tasks]):
+        r, photos, a, error = job.result()
+        if error:
+            if error != "остановлено":
+                log(f"  {r['id']}: {error}")
             continue
         contradictions = sum(1 for c in a["claims"] if c["status"] == "contradicted")
         t = a["text_facts"]
@@ -234,4 +254,7 @@ def assess(cfg, con, root, log=print, limit=None):
         done += 1
         log(f"  {r['id']}: отделка {a['finish_level']}, доверие {a['trust']}, "
             f"расхождений {contradictions} — {a['summary'][:90]}")
+    pool.shutdown()
+    if stop.is_set():
+        log(f"Готово {done}, остальное продолжится при следующем запуске.")
     return done

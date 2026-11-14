@@ -8,7 +8,9 @@
 """
 import random
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -73,56 +75,91 @@ def pick_evenly(numbers, first, limit):
     return sorted(picked)
 
 
-def download_photos(cfg, con, root, log=print, limit=None):
-    """Качает фото для уникальных квартир, у которых их ещё нет. Можно прерывать и продолжать."""
-    c = cfg["photos"]
-    con.executescript(SCHEMA)
-    rows = con.execute(
-        "SELECT l.id, l.photo_url, l.photo_count FROM listings l "
-        "JOIN metrics m ON m.listing_id = l.id "
-        "LEFT JOIN photo_status s ON s.listing_id = l.id "
-        "WHERE l.active = 1 AND m.is_primary = 1 AND l.photo_url IS NOT NULL "
-        "AND (s.listing_id IS NULL OR s.photo_url <> l.photo_url) "
-        "ORDER BY l.price / l.area").fetchall()         # сначала самые дешёвые за м²
-    if limit:
-        rows = rows[:limit]
-    log(f"Объявлений без скачанных фото: {len(rows)}")
+_local = threading.local()        # у каждого потока своё соединение с фотосервером
+_stop = threading.Event()         # поднимается, когда сервер начал отказывать — все потоки сворачиваются
 
-    session = requests.Session()
-    session.headers.update(HEADERS)
-    session.headers["Referer"] = "https://krisha.kz/"
-    total = 0
 
-    for i, r in enumerate(rows, start=1):
-        m = re.search(r"^(.*)/(\d+)-full\.\w+$", r["photo_url"])
-        if not m:
-            continue
-        folder, first = m.group(1), int(m.group(2))
-        try:
-            numbers = find_photo_numbers(session, folder, first, r["photo_count"] or 1, c)
-            numbers = pick_evenly(numbers, first, c["max_per_listing"])
-            out_dir = Path(root) / c["dir"] / str(r["id"])
-            out_dir.mkdir(parents=True, exist_ok=True)
-            con.execute("DELETE FROM photos WHERE listing_id = ?", (r["id"],))
-            for n in numbers:
+def _session():
+    if not hasattr(_local, "session"):
+        _local.session = requests.Session()
+        _local.session.headers.update(HEADERS)
+        _local.session.headers["Referer"] = "https://krisha.kz/"
+    return _local.session
+
+
+def fetch_listing(listing_id, photo_url, photo_count, c, root):
+    """Работа одного потока: найти и скачать фото одного объявления.
+
+    Возвращает (id, photo_url, [(номер, путь)], ошибка). В базу не пишет — это делает главный поток.
+    """
+    if _stop.is_set():
+        return listing_id, photo_url, [], "остановлено"
+    m = re.search(r"^(.*)/(\d+)-full\.\w+$", photo_url)
+    if not m:
+        return listing_id, photo_url, [], None
+    folder, first = m.group(1), int(m.group(2))
+    session, saved = _session(), []
+    try:
+        numbers = find_photo_numbers(session, folder, first, photo_count or 1, c)
+        numbers = pick_evenly(numbers, first, c["max_per_listing"])
+        out_dir = Path(root) / c["dir"] / str(listing_id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for n in numbers:
+            file = out_dir / f"{n}.jpg"
+            if not file.exists():                 # уже скачано раньше (например, другим конфигом)
                 resp = session.get(f"{folder}/{n}-{c['size']}.jpg", timeout=30)
                 if resp.status_code in (403, 429):
                     raise RuntimeError(f"фотосервер ответил {resp.status_code}")
                 if resp.status_code != 200:
                     continue
-                file = out_dir / f"{n}.jpg"
                 file.write_bytes(resp.content)
-                con.execute("INSERT OR REPLACE INTO photos VALUES (?, ?, ?)",
-                            (r["id"], n, file.relative_to(root).as_posix()))
-                total += 1
                 _pause(c)
-        except (requests.RequestException, RuntimeError) as e:
+            saved.append((n, file.relative_to(root).as_posix()))
+    except (requests.RequestException, RuntimeError) as e:
+        _stop.set()
+        return listing_id, photo_url, [], str(e)
+    return listing_id, photo_url, saved, None
+
+
+def download_photos(cfg, con, root, log=print, limit=None):
+    """Качает фото для уникальных квартир, у которых их ещё нет, в несколько потоков.
+
+    Порядок: сначала квартиры с наибольшей скидкой к аналогам. Можно прерывать и продолжать.
+    """
+    c = cfg["photos"]
+    con.executescript(SCHEMA)
+    rows = con.execute(
+        "SELECT l.id, l.photo_url, l.photo_count FROM listings l "
+        "JOIN metrics m ON m.listing_id = l.id "
+        "LEFT JOIN benefit b ON b.listing_id = l.id "
+        "LEFT JOIN photo_status s ON s.listing_id = l.id "
+        "WHERE l.active = 1 AND m.is_primary = 1 AND l.photo_url IS NOT NULL "
+        "AND (s.listing_id IS NULL OR s.photo_url <> l.photo_url) "
+        "ORDER BY b.raw_pct IS NULL, b.raw_pct DESC").fetchall()
+    if limit:
+        rows = rows[:limit]
+    threads = c.get("threads", 1)
+    log(f"Объявлений без скачанных фото: {len(rows)}, потоков: {threads}")
+
+    _stop.clear()
+    total = done = 0
+    with ThreadPoolExecutor(max_workers=threads) as pool:
+        jobs = [pool.submit(fetch_listing, r["id"], r["photo_url"], r["photo_count"], c, root)
+                for r in rows]
+        for job in as_completed(jobs):
+            listing_id, photo_url, saved, error = job.result()
+            if error:
+                if error != "остановлено":
+                    log(f"СТОП на объявлении {listing_id}: {error}. Прогресс сохранён, запустите позже.")
+                continue
+            con.execute("DELETE FROM photos WHERE listing_id = ?", (listing_id,))
+            con.executemany("INSERT OR REPLACE INTO photos VALUES (?, ?, ?)",
+                            [(listing_id, n, path) for n, path in saved])
+            con.execute("INSERT OR REPLACE INTO photo_status VALUES (?, ?, ?, datetime('now', 'localtime'))",
+                        (listing_id, photo_url, len(saved)))
             con.commit()
-            log(f"СТОП на объявлении {r['id']}: {e}. Прогресс сохранён, запустите ещё раз позже.")
-            return total
-        con.execute("INSERT OR REPLACE INTO photo_status VALUES (?, ?, ?, datetime('now', 'localtime'))",
-                    (r["id"], r["photo_url"], len(numbers)))
-        con.commit()
-        if i % 10 == 0 or i == len(rows):
-            log(f"  {i}/{len(rows)} объявлений, фото скачано: {total}")
+            total += len(saved)
+            done += 1
+            if done % 50 == 0 or done == len(rows):
+                log(f"  {done}/{len(rows)} объявлений, фото: {total}")
     return total

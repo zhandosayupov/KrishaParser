@@ -42,7 +42,8 @@ def page_data(html):
 
 def total_count(html):
     try:
-        return int(page_data(html)["search"]["nbTotal"])
+        raw = str(page_data(html)["search"]["nbTotal"])
+        return int("".join(ch for ch in raw if ch.isdigit()))      # "37 090" -> 37090
     except (KeyError, TypeError, ValueError):
         return None
 

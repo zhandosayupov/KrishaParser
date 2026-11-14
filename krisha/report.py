@@ -24,7 +24,8 @@ def year_label(year, edges):
         return f"до {edges[0]}"
     if b == len(edges):
         return f"{edges[-1]}+"
-    return f"{edges[b - 1]}–{edges[b] - 1}"
+    lo, hi = edges[b - 1], edges[b] - 1
+    return str(lo) if lo == hi else f"{lo}–{hi}"
 
 
 def _table(con, name):

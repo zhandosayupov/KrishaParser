@@ -100,7 +100,7 @@ def combine(values, how):
 def compute(cfg, con, log=print):
     b = cfg["benefit"]
     min_count, tol = cfg["comps"]["min_count"], cfg["comps"]["area_tolerance"]
-    edges = cfg["buckets"]["year_edges"]
+    edges = cfg["comps"]["year_edges"]     # для аналогов корзины годов крупнее, чем в отчёте
     ensure_table(con)
 
     primary = {r["listing_id"]: r["is_primary"] for r in con.execute("SELECT * FROM metrics")}

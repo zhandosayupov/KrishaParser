@@ -9,7 +9,7 @@ import time
 import requests
 
 from . import db
-from .config import parse_search_url, build_list_url
+from .config import search_params, build_list_url
 from .parse import parse_list_page, total_count, is_blocked, BlockedError
 
 HEADERS = {
@@ -22,7 +22,7 @@ HEADERS = {
 def collect(cfg, con, log=print):
     """Один проход по всем страницам списка. Возвращает сводку прохода."""
     c = cfg["collector"]
-    base, params = parse_search_url(cfg["search_url"])
+    base, params = search_params(cfg)
     started = db.now()
     stats = {"pages": 0, "found": 0, "new": 0, "price_changed": 0, "status": "ok"}
     seen_ids = set()

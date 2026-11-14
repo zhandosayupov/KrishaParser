@@ -5,7 +5,8 @@
 import unittest
 from pathlib import Path
 
-from krisha.config import parse_search_url, build_list_url, polygon_from_params, load_config
+from krisha.config import (parse_search_url, build_list_url, polygon_from_params,
+                           load_config, filter_params, search_params)
 from krisha.parse import parse_list_page, parse_preview, total_count, is_blocked, BlockedError
 
 FIX = Path(__file__).parent / "fixtures"
@@ -76,15 +77,29 @@ class Blocked(unittest.TestCase):
 
 
 class Url(unittest.TestCase):
-    def test_map_url_to_list_url(self):
-        base, params = parse_search_url(load_config()["search_url"])
+    def test_only_city_and_borders_come_from_url(self):
+        cfg = {"search_url": "https://krisha.kz/map/prodazha/kvartiry/almaty/?das[live.rooms][]=2&zoom=15"
+                             "&lat=43.2&lon=76.9&areas=p43.1,76.1,43.2,76.2,43.3,76.3",
+               "filters": {"price_to": 100000000}}
+        base, params = search_params(cfg)
         self.assertEqual(base, "https://krisha.kz/prodazha/kvartiry/almaty/")
-        names = [k for k, _ in params]
-        self.assertNotIn("zoom", names)
-        self.assertIn("areas", names)
-        self.assertEqual(len(polygon_from_params(params)), 16)
+        self.assertEqual(params, [("das[price][to]", "100000000"), ("areas", "p43.1,76.1,43.2,76.2,43.3,76.3")])
+        self.assertEqual(len(polygon_from_params(params)), 3)
         self.assertTrue(build_list_url(base, params, 3).endswith("&page=3"))
         self.assertNotIn("page=", build_list_url(base, params, 1))
+
+    def test_filters(self):
+        self.assertEqual(filter_params({"price_from": None, "rooms": [], "extra": {}}), [])
+        got = filter_params({"year_from": 2020, "rooms": [2, 5], "not_last_floor": True,
+                             "building": [3], "extra": {"das[flat.priv_dorm]": 2}})
+        self.assertEqual(got, [("das[house.year][from]", "2020"), ("das[live.rooms][]", "2"),
+                               ("das[live.rooms][]", "5.100"), ("das[flat.building][]", "3"),
+                               ("das[floor_not_last]", "1"), ("das[flat.priv_dorm]", "2")])
+
+    def test_shipped_configs_load(self):
+        for name in (None, "configs/golden_square.yaml"):
+            base, params = search_params(load_config(name))
+            self.assertEqual([k for k, _ in params], ["das[price][to]", "areas"])
 
 
 if __name__ == "__main__":

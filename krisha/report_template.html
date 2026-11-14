@@ -5,76 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Квартиры: сравнение с аналогами</title>
 <style>
-:root{--bg:#f6f5f1;--card:#fff;--text:#1f1e1b;--muted:#6f6d66;--line:#e3e0d8;--accent:#1d6f5c;--good:#157347;--bad:#b3402a;--warn:#946200;--chip:#eeece5}
-@media (prefers-color-scheme:dark){:root{--bg:#191917;--card:#232320;--text:#ecebe6;--muted:#a09e96;--line:#383733;--accent:#5fc3ab;--good:#5fcf95;--bad:#f08a72;--warn:#e0b354;--chip:#2e2d2a}}
+:root{--bg:#f6f5f1;--card:#fff;--text:#1f1e1b;--muted:#6f6d66;--line:#e3e0d8;--accent:#1d6f5c;--good:#157347;--bad:#b3402a;--warn:#946200;--chip:#eeece5;--b1:#f3f1ea;--b2:#eaf1ee;--b3:#efecf5}
+@media (prefers-color-scheme:dark){:root{--bg:#191917;--card:#232320;--text:#ecebe6;--muted:#a09e96;--line:#383733;--accent:#5fc3ab;--good:#5fcf95;--bad:#f08a72;--warn:#e0b354;--chip:#2e2d2a;--b1:#2a2926;--b2:#22302c;--b3:#2b2836}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,"Segoe UI",sans-serif}
-header{padding:20px 24px 8px}
-h1{font-size:20px;margin:0 0 4px;font-weight:600}
-.sub{color:var(--muted);font-size:13px}
-.bar{background:var(--bg);border-bottom:1px solid var(--line);padding:10px 24px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
-@media (min-width:1000px){.bar{position:sticky;top:0;z-index:5}}
-.bar label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:3px}
-select,input{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
-input[type=number]{width:80px}input[type=search]{width:190px}
-.check{flex-direction:row!important;align-items:center;font-size:13px!important;color:var(--text)!important;gap:6px!important;padding-bottom:5px}
-.tabs{display:flex;gap:4px;padding:12px 24px 0}
-.tabs button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,"Segoe UI",sans-serif}
+header{padding:14px 16px 4px}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}
+.sub{color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;padding:8px 16px 0;flex-wrap:wrap}
+.tabs button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);padding:4px 12px;border-radius:6px;cursor:pointer}
 .tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-main{padding:12px 24px 60px}
-.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 14px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:130px}
-.kpi b{display:block;font-size:18px;font-weight:600}.kpi span{font-size:12px;color:var(--muted)}
-details{background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
-summary{cursor:pointer;padding:10px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-summary h2{font-size:15px;margin:0;font-weight:600;min-width:150px}
+.bar{background:var(--bg);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:end}
+.bar label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:2px}
+select,input{font:inherit;font-size:12px;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+input[type=number]{width:64px}input[type=search]{width:150px}
+.check{flex-direction:row!important;align-items:center;font-size:12px!important;color:var(--text)!important;gap:4px!important;padding-bottom:3px}
+main{padding:10px 16px 60px}
+.kpis{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:5px 12px}
+.kpi b{font-size:15px;font-weight:600;margin-right:6px}.kpi span{font-size:11px;color:var(--muted)}
+details.grp{background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:8px;overflow:hidden}
+details.grp>summary{cursor:pointer;padding:7px 12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+summary h2{font-size:14px;margin:0;font-weight:600;min-width:130px}
 summary .s{color:var(--muted);font-size:12px}
-.meter{flex:1;min-width:120px;height:6px;background:var(--chip);border-radius:3px;overflow:hidden}.meter i{display:block;height:100%;background:var(--accent)}
-.wrap{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:13px}
-th,td{padding:7px 10px;border-top:1px solid var(--line);text-align:left;vertical-align:top;white-space:nowrap}
-th{font-size:11px;color:var(--muted);font-weight:500;cursor:pointer;user-select:none}
+.meter{flex:1;min-width:80px;height:5px;background:var(--chip);border-radius:3px;overflow:hidden}.meter i{display:block;height:100%;background:var(--accent)}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
+th,td{padding:5px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{font-size:11px;color:var(--muted);font-weight:500;cursor:pointer;user-select:none;white-space:normal;line-height:1.2;vertical-align:bottom}
+th:hover{color:var(--text)}th.on{color:var(--accent);font-weight:600}
+tr.band th{cursor:default;font-size:10px;letter-spacing:.04em;text-transform:uppercase;text-align:center;padding:3px}
+.c1{background:var(--b1)}.c2{background:var(--b2)}.c3{background:var(--b3)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-td.desc{white-space:normal;min-width:260px;max-width:420px;color:var(--muted);font-size:12px}
-img.ph{width:96px;height:72px;object-fit:cover;border-radius:5px;background:var(--chip);display:block}
+tbody tr.r{cursor:pointer}tbody tr.r:hover td{background:var(--chip)}
+td.sep,th.sep{border-left:2px solid var(--line)}
+img.ph{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px;background:var(--chip);display:block}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .good{color:var(--good);font-weight:600}.bad{color:var(--bad)}.muted{color:var(--muted)}
-.chip{display:inline-block;background:var(--chip);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px 2px 1px 0}
+.chip{display:inline-block;background:var(--chip);border-radius:4px;padding:0 5px;font-size:11px;margin:1px 2px 1px 0;white-space:nowrap}
 .chip.w{color:var(--warn)}.chip.b{color:var(--bad)}.chip.g{color:var(--good)}
-.calc{font-size:11px;color:var(--text);margin-top:4px;line-height:1.5}.chip.big{font-size:13px;padding:3px 9px;font-weight:600}
-td.ai{white-space:normal;min-width:270px;max-width:380px}.sum{font-size:12px;margin-top:4px}
-.cmp{display:block;width:110px;height:5px;background:var(--chip);border-radius:3px;margin-top:4px;position:relative}
-.cmp i{position:absolute;top:0;height:100%;border-radius:3px}
-.note{color:var(--muted);font-size:12px;margin:14px 0}
+tr.d td{white-space:normal;background:var(--bg);padding:10px 14px}
+.dgrid{display:grid;grid-template-columns:200px 1fr 1fr 1fr;gap:16px}
+.dgrid h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px;font-weight:600}
+.dgrid p{margin:0 0 6px}.calc{font-variant-numeric:tabular-nums;line-height:1.6}
+.note{color:var(--muted);font-size:12px;margin:10px 0}
+@media (max-width:900px){.dgrid{grid-template-columns:1fr}table{table-layout:auto}.wrap{overflow-x:auto}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Квартиры: сравнение с аналогами</h1>
-  <div class="sub" id="meta"></div>
-</header>
+<header><h1>Квартиры: сравнение с аналогами</h1><div class="sub" id="meta"></div></header>
 <div class="tabs" id="tabs"></div>
 <div class="bar">
-  <label>Сценарий<select id="scenario"><option value="">все квартиры</option><option value="renovate">под ремонт (отделка 1–3)</option><option value="ready">готовая (отделка 4–5)</option></select></label>
-  <label>Сортировка<select id="sort"></select></label>
-  <label>Вердикт ИИ<select id="verdict"><option value="">любой</option><option value="look">стоит смотреть</option><option value="doubt">сомнительно</option><option value="skip">мимо</option><option value="any">только с вердиктом</option></select></label>
+  <label>Сценарий<select id="scenario"><option value="">все</option><option value="renovate">под ремонт</option><option value="ready">готовая</option></select></label>
   <label>Комнат<select id="rooms"><option value="">все</option></select></label>
   <label>Район<select id="district"><option value="">все</option></select></label>
-  <label>Отделка (со слов продавца)<select id="finish"><option value="">любая</option><option value="finished">с ремонтом</option><option value="rough">черновая</option><option value="needs_repair">требует ремонта</option><option value="unknown">не указана</option></select></label>
-  <label>Отделка по фото (ИИ)<select id="vlevel"><option value="">любая</option><option value="low">1–2 без отделки</option><option value="3">3 от застройщика</option><option value="high">4–5 с ремонтом</option><option value="none">не оценено</option></select></label>
+  <label>Отделка по фото<select id="vlevel"><option value="">любая</option><option value="1-3">1–3 без отделки</option><option value="4-5">4–5 старый ремонт</option><option value="6-7">6–7 простая / не новая</option><option value="8-10">8–10 хороший ремонт</option><option value="none">не оценено</option></select></label>
   <label>Продавец<select id="seller"><option value="">все</option></select></label>
-  <label>Скидка от, %<input type="number" id="mind" step="1" placeholder="—"></label>
+  <label>Вердикт ИИ<select id="verdict"><option value="">любой</option><option value="look">стоит смотреть</option><option value="doubt">сомнительно</option><option value="skip">мимо</option><option value="any">есть вердикт</option></select></label>
+  <label>Выгода от, %<input type="number" id="mind" step="1" placeholder="—"></label>
   <label>Цена до, млн<input type="number" id="maxp" step="1" placeholder="—"></label>
   <label>Поиск<input type="search" id="q" placeholder="ЖК, адрес, текст"></label>
-  <label class="check"><input type="checkbox" id="dups"> показывать копии</label>
-  <label class="check"><input type="checkbox" id="pledge" checked> скрыть залоговые</label>
-  <label class="check"><input type="checkbox" id="lies"> только с расхождениями</label>
+  <label class="check"><input type="checkbox" id="dups"> копии</label>
+  <label class="check"><input type="checkbox" id="pledge" checked> без залоговых</label>
+  <label class="check"><input type="checkbox" id="lies"> расхождения</label>
+  <label class="check"><input type="checkbox" id="lever"> срочно / торг</label>
 </div>
 <main>
   <div class="kpis" id="kpis"></div>
   <div id="groups"></div>
-  <p class="note">Выгода с учётом ремонта: цена приводится к состоянию «под ключ» (плюс стоимость ремонта до хорошего, минус остающиеся мебель и техника) и сравнивается с такой же ценой у аналогов. Тарифы ремонта и обстановки — примерные, задаются в config.yaml. Уровень отделки берётся по фото (ИИ), а где фото не оценены — со слов продавца.</p>
-  <p class="note">Скидка — насколько цена за м² ниже медианы аналогов. Аналоги ищутся по шагам: тот же ЖК с той же отделкой → тот же ЖК → рядом (район, тип дома, годы, площадь ±20%, отделка) → район. Аналоги пока подбираются по отделке со слов продавца; оценка ИИ по фото показана рядом для сверки. Цены — из объявлений, не из сделок.</p>
+  <p class="note">Клик по заголовку колонки — сортировка, клик по строке — подробности. Проценты в блоке «Статистика»: насколько цена за м² ниже медианы аналогов (минус — дороже); «—» — аналогов меньше порога. «ЖК» — квартиры того же ЖК; «окружение» — тот же район, тип дома и годы постройки; «район» — весь район. «Под ключ» — то же сравнение после поправки на материалы для ремонта и остающиеся мебель и технику; итог берётся <span id="comb"></span>. Тарифы примерные, задаются в config.yaml. Цены — из объявлений, не из сделок.</p>
 </main>
 <script>
 const DATA = /*DATA*/[];
@@ -83,103 +81,91 @@ const $ = id => document.getElementById(id);
 const fmt = n => n == null ? '—' : Math.round(n).toLocaleString('ru-RU');
 const mln = n => n == null ? '—' : (n / 1e6).toFixed(1).replace('.0', '');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const FINISH = {finished:'с ремонтом', rough:'черновая', needs_repair:'требует ремонта', unknown:'не указана'};
-const LEVEL = {'complex+finish':'ЖК + отделка', complex:'ЖК', nearby:'рядом', district:'район', none:'нет аналогов'};
+const pct = p => p == null ? '<span class="muted">—</span>' : `<span class="${p >= 5 ? 'good' : p <= -5 ? 'bad' : ''}">${p > 0 ? '−' : '+'}${Math.abs(p).toFixed(0)}%</span>`;
+const LEVELS = {1:'без отделки',2:'черновая',3:'предчистовая',4:'убитая',5:'«бабушкин»',6:'простая',7:'не новый',8:'хороший',9:'очень хороший',10:'премиум'};
+const VFURN = {none:'нет', partial:'частично', full:'полностью', not_visible:'не видно'};
+const VIEW = {not_shown:'не показан', ordinary:'обычный', good:'хороший', excellent:'отличный'};
+const ROOMRU = {kitchen:'кухня', bathroom:'санузел', living:'комната'};
+const VERDICT = {look:['смотреть','g'], doubt:['сомнительно','w'], skip:['мимо','b']};
 const TABS = [['g_price','По цене'],['g_year','По году постройки'],['g_complex','По ЖК'],['g_district','По району']];
-const SORTS = [
-  ['benefit_pct',-1,'Выгода с учётом ремонта, %'],['benefit_tg',-1,'Выгода с учётом ремонта, тенге'],['vrank',-1,'Вердикт ИИ (сначала лучшие)'],
-  ['discount_pct',-1,'Скидка к аналогам, % (без учёта ремонта)'],['discount_tg',-1,'Скидка, тенге'],
-  ['price',1,'Цена (сначала дешёвые)'],['price',-1,'Цена (сначала дорогие)'],
-  ['price_m2',1,'Цена за м²'],['area',-1,'Площадь'],['year',-1,'Год постройки'],
-  ['first_seen',-1,'Новые объявления'],['contradictions',-1,'Расхождения текста и фото'],['trust',1,'Доверие (сначала низкое)'],['finish_level',-1,'Отделка по фото (сначала лучшая)'],['price_drop',-1,'Снижение цены']];
-DATA.forEach(d => d.vrank = {look: 3, doubt: 2, skip: 1}[d.verdict] || null);
-DATA.forEach(d => d.price_drop = d.first_price && d.first_price > d.price ? d.first_price - d.price : 0);
-let tab = 'g_price';
+// Колонки: [ключ сортировки, заголовок, ширина %, блок, выравнивание вправо, направление по умолчанию]
+const COLS = [
+  [null,'',5,1,0,0], ['area','Квартира',8,1,0,-1], ['complex','ЖК, адрес',13,1,0,1], ['price','Цена, млн',5,1,1,1],
+  ['price_m2','₸/м²',6,1,1,1], ['year','Год, дом',8,1,0,-1], ['condition','Продавец о состоянии',9,1,0,1], ['lever','Метки',7,1,0,-1],
+  ['raw_complex','к ЖК',5,2,1,-1], ['raw_nearby','к окруже­нию',5,2,1,-1], ['raw_district','к району',5,2,1,-1], ['benefit_pct','под ключ',8,2,1,-1],
+  ['finish_level','Отделка 1–10',6,3,0,-1], ['trust','Дове­рие',4,3,1,1], ['vrank','Вердикт',6,3,0,-1]];
+DATA.forEach(d => { d.vrank = {look:3, doubt:2, skip:1}[d.verdict] || null; d.lever = (d.urgent || 0) + (d.bargain || 0) + (d.price_drop ? 1 : 0); });
+let tab = 'g_price', sortKey = 'benefit_pct', sortDir = -1, open = new Set();
 
 function fill(id, values) { values.forEach(v => $(id).insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`)); }
 fill('rooms', [...new Set(DATA.map(d => d.rooms))].sort());
 fill('district', [...new Set(DATA.map(d => d.district).filter(Boolean))].sort());
 fill('seller', [...new Set(DATA.map(d => d.seller_type).filter(Boolean))].sort());
-SORTS.forEach((s, i) => $('sort').insertAdjacentHTML('beforeend', `<option value="${i}">${s[2]}</option>`));
-TABS.forEach(([k, t]) => { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { tab = k; render(); }; b.dataset.k = k; $('tabs').append(b); });
+TABS.forEach(([k, t]) => { const b = document.createElement('button'); b.textContent = t; b.dataset.k = k; b.onclick = () => { tab = k; render(); }; $('tabs').append(b); });
 $('meta').textContent = `Собрано ${META.count} объявлений · обновлено ${META.generated.replace('T', ' ')}`;
+$('comb').textContent = META.combine === 'min' ? 'самый осторожный из трёх' : 'средний из трёх';
 
 function median(a) { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 
+function vmatch(d) {
+  const v = $('vlevel').value, l = d.finish_level;
+  if (!v) return true; if (v === 'none') return l == null; if (l == null) return false;
+  const [a, b] = v.split('-').map(Number); return l >= a && l <= b;
+}
 function filtered() {
-  const q = $('q').value.trim().toLowerCase(), mind = parseFloat($('mind').value), maxp = parseFloat($('maxp').value);
+  const q = $('q').value.trim().toLowerCase(), mind = parseFloat($('mind').value), maxp = parseFloat($('maxp').value), vd = $('verdict').value;
   return DATA.filter(d =>
     ($('dups').checked || d.is_primary) && (!$('pledge').checked || !d.pledged) &&
+    (!$('scenario').value || d.scenario === $('scenario').value) && (!vd || (vd === 'any' ? d.verdict : d.verdict === vd)) &&
     (!$('rooms').value || d.rooms == $('rooms').value) && (!$('district').value || d.district === $('district').value) &&
-    (!$('scenario').value || d.scenario === $('scenario').value) &&
-    (!$('verdict').value || ($('verdict').value === 'any' ? d.verdict : d.verdict === $('verdict').value)) &&
-    (!$('finish').value || d.finish === $('finish').value) && vmatch(d) && (!$('lies').checked || d.contradictions > 0) && (!$('seller').value || d.seller_type === $('seller').value) &&
-    (isNaN(mind) || (d.discount_pct != null && d.discount_pct >= mind)) && (isNaN(maxp) || d.price <= maxp * 1e6) &&
+    vmatch(d) && (!$('lies').checked || d.contradictions > 0) && (!$('lever').checked || d.lever > 0) &&
+    (!$('seller').value || d.seller_type === $('seller').value) &&
+    (isNaN(mind) || (d.benefit_pct ?? d.raw_pct ?? -999) >= mind) && (isNaN(maxp) || d.price <= maxp * 1e6) &&
     (!q || [d.complex, d.address, d.description, d.district].join(' ').toLowerCase().includes(q)));
 }
 
-function vmatch(d) {
-  const v = $('vlevel').value, l = d.finish_level;
-  return !v || (v === 'none' ? l == null : l == null ? false : v === 'low' ? l <= 2 : v === 'high' ? l >= 4 : l == 3);
+function marks(d) {
+  return [d.urgent ? '<span class="chip g">срочно</span>' : '', d.bargain ? '<span class="chip g">торг</span>' : '',
+    d.price_drop ? `<span class="chip g">−${mln(d.price_drop)}</span>` : '', d.pledged ? '<span class="chip b">залог</span>' : '',
+    d.dup_count > 1 ? `<span class="chip">×${d.dup_count}</span>` : '', d.photo_count ? '' : '<span class="chip w">без фото</span>'].join('');
 }
-const VLEVEL = {1:'черновая', 2:'предчистовая', 3:'от застройщика', 4:'хороший ремонт', 5:'дизайнерский'};
-const VFURN = {none:'нет', partial:'частично', full:'полностью', not_visible:'не видно'};
-const ROOMRU = {kitchen:'кухня', bathroom:'санузел', living:'комната'};
-
-function aiCell(d) {
-  if (d.finish_level == null) return '<span class="muted">не оценено</span>';
-  const claims = d.claims.map(c => `<span class="chip ${c.status === 'contradicted' ? 'b' : 'g'}">${c.status === 'contradicted' ? '✗' : '✓'} ${esc(c.claim)}</span>`).join('');
-  return `<b>${d.finish_level} · ${VLEVEL[d.finish_level]}</b> <span class="muted">доверие ${d.trust}/5</span><br>
-    <span class="muted">мебель: ${VFURN[d.v_furniture]} · кухня: ${d.kitchen_set === 'yes' ? 'есть' : d.kitchen_set === 'no' ? 'нет' : 'не видно'}${d.appliances ? ' · ' + esc(d.appliances) : ''}</span><br>
-    ${d.staged ? '<span class="chip b">похоже на рендер</span>' : ''}${d.not_shown.length ? `<span class="chip w">не показано: ${d.not_shown.map(r => ROOMRU[r]).join(', ')}</span>` : ''}${claims}
-    <div class="sum">${esc(d.summary)}</div>`;
-}
-
-const VERDICT = {look: ['стоит смотреть', 'g'], doubt: ['сомнительно', 'w'], skip: ['мимо', 'b']};
-const BLEVEL = {complex: 'ЖК', nearby: 'рядом', district: 'район', none: 'нет аналогов'};
-
-function benefitCell(d) {
-  if (d.level == null) return '<span class="muted">нет уровня отделки</span>';
-  if (d.benefit_pct == null) return '<span class="muted">мало аналогов</span>';
-  const p = d.benefit_pct, cls = p >= 5 ? 'good' : p <= -5 ? 'bad' : '';
-  return `<span class="${cls}">${p > 0 ? '+' : '−'}${mln(Math.abs(d.benefit_tg))} млн · ${Math.abs(p).toFixed(0)}%</span>
-    <div class="calc">цена ${mln(d.price)}<br>${d.reno_cost >= 0 ? '+ ремонт ' : '− запас ремонта '}${mln(Math.abs(d.reno_cost))}<br>− обстановка ${mln(d.equip_value)}<br>
-    = ${fmt(d.ready_m2)} ₸/м² «под ключ»<br>у аналогов ${fmt(d.comp_ready_m2)} <span class="muted">(${BLEVEL[d.b_comp_level]} · ${d.b_comp_count})</span><br>
-    <span class="muted">отделка ${d.level} · ${d.level_source === 'photo' ? 'по фото' : 'со слов продавца'}</span></div>`;
-}
-
-function verdictCell(d) {
-  if (!d.verdict) return '<span class="muted">—</span>';
-  const [name, c] = VERDICT[d.verdict];
-  return `<span class="chip ${c} big">${name}</span><div class="sum">${esc(d.reason)}</div>
-    <div class="sum"><span class="good">＋</span> ${esc(d.advantage)}</div><div class="sum"><span class="bad">！</span> ${esc(d.risk)}</div>`;
-}
-
 function row(d) {
-  const p = d.discount_pct, cls = p == null ? 'muted' : p >= 5 ? 'good' : p <= -5 ? 'bad' : '';
-  let cmp = '';
-  if (d.comp_m2) { const hi = Math.max(d.comp_m2, d.price_m2) * 1.05, a = d.price_m2 / hi * 100, b = d.comp_m2 / hi * 100;
-    cmp = `<span class="cmp" title="полоса — эта квартира, отметка — медиана аналогов"><i style="left:0;width:${a}%;background:var(${p >= 0 ? '--good' : '--bad'})"></i><i style="left:${b}%;width:2px;background:var(--text)"></i></span>`; }
-  const chips = [
-    d.dup_count > 1 ? `<span class="chip">копий: ${d.dup_count}</span>` : '',
-    d.pledged ? '<span class="chip b">в залоге</span>' : '',
-    d.photo_count ? '' : '<span class="chip w">без фото</span>',
-    d.comp_level === 'none' || d.comp_count < META.min_comps ? '<span class="chip w">мало аналогов</span>' : '',
-    d.price_drop ? `<span class="chip">цена снижена на ${mln(d.price_drop)} млн</span>` : '',
-    d.furniture ? `<span class="chip">мебель: ${esc(d.furniture)}</span>` : ''].join('');
-  return `<tr>
-    <td>${d.photo_url ? `<a href="${d.url}" target="_blank" rel="noopener"><img class="ph" loading="lazy" src="${esc(d.photo_url.replace('-full.', '-400x300.'))}" alt=""></a>` : '<span class="ph"></span>'}</td>
-    <td><a href="${d.url}" target="_blank" rel="noopener">${d.rooms}-комн · ${d.area} м² · ${d.floor ?? '?'}/${d.floors ?? '?'} эт.</a><br>${esc(d.complex || '—')}<br><span class="muted">${esc(d.address || '')}</span></td>
-    <td class="num"><b>${mln(d.price)} млн</b><br><span class="muted">${fmt(d.price_m2)} ₸/м²</span></td>
-    <td class="num"><span class="${cls}">${p == null ? '—' : (p > 0 ? '−' : '+') + Math.abs(p).toFixed(1) + '%'}</span><br><span class="muted">${d.discount_tg == null ? '' : mln(d.discount_tg) + ' млн'}</span>${cmp}</td>
-    <td class="num ben">${benefitCell(d)}</td>
-    <td class="ai">${verdictCell(d)}</td>
-    <td class="num">${fmt(d.comp_m2)}<br><span class="muted">${LEVEL[d.comp_level]} · ${d.comp_count}</span></td>
-    <td>${d.year ?? '—'}<br><span class="muted">${esc(d.house_type || '')}${d.ceiling ? ' · ' + d.ceiling + ' м' : ''}</span></td>
-    <td>${FINISH[d.finish]}<br><span class="muted">${esc(d.condition || '')}</span></td>
-    <td class="ai">${aiCell(d)}</td>
-    <td>${esc(d.seller_type || '')}<br><span class="muted">с ${esc((d.first_seen || '').slice(0, 10))}</span></td>
-    <td class="desc">${chips}${chips ? '<br>' : ''}${esc(d.description)}</td></tr>`;
+  const ai = d.finish_level != null;
+  const v = d.verdict ? `<span class="chip ${VERDICT[d.verdict][1]}">${VERDICT[d.verdict][0]}</span>` : '<span class="muted">—</span>';
+  const filled = f => d.filled.includes(f) ? '<span class="muted" title="найдено ИИ в тексте">*</span>' : '';
+  let h = `<tr class="r" data-id="${d.id}">
+    <td>${d.photo_url ? `<img class="ph" loading="lazy" src="${esc(d.photo_url.replace('-full.', '-400x300.'))}" alt="">` : ''}</td>
+    <td>${d.rooms}к · ${d.area} м²<br><span class="muted">${d.floor ?? '?'}/${d.floors ?? '?'} эт.</span></td>
+    <td title="${esc(d.address)}">${esc(d.complex || '—')}${filled('complex')}<br><span class="muted">${esc(d.address || '')}</span></td>
+    <td class="num"><b>${mln(d.price)}</b></td><td class="num">${fmt(d.price_m2)}</td>
+    <td>${d.year ?? '—'}${filled('year')}<br><span class="muted">${esc(d.house_type || '')}${filled('house_type')}</span></td>
+    <td title="${esc(d.condition)}">${esc(d.condition || '—')}<br><span class="muted">${d.furniture ? 'мебель: ' + esc(d.furniture) : ''}</span></td>
+    <td style="white-space:normal">${marks(d)}</td>
+    <td class="num sep">${pct(d.raw_complex)}</td><td class="num">${pct(d.raw_nearby)}</td><td class="num">${pct(d.raw_district)}</td>
+    <td class="num">${pct(d.benefit_pct)}<br><span class="muted">${d.benefit_tg == null ? '' : mln(d.benefit_tg) + ' млн'}</span></td>
+    <td class="sep">${ai ? `<b>${d.finish_level}</b> ${LEVELS[d.finish_level]}${d.contradictions ? ` <span class="chip b">✗${d.contradictions}</span>` : ''}` : (d.level ? `<span class="muted">${d.level} со слов</span>` : '<span class="muted">—</span>')}</td>
+    <td class="num">${ai ? d.trust + '/5' : '<span class="muted">—</span>'}</td><td>${v}</td></tr>`;
+  if (open.has(d.id)) h += detail(d);
+  return h;
+}
+function detail(d) {
+  const ai = d.finish_level != null;
+  const claims = ai ? d.claims.map(c => `<span class="chip ${c.status === 'contradicted' ? 'b' : 'g'}">${c.status === 'contradicted' ? '✗' : '✓'} ${esc(c.claim)}</span>`).join(' ') : '';
+  const calc = d.level == null ? '<p class="muted">Уровень отделки неизвестен: продавец не указал состояние, фото не оценены.</p>' :
+    `<p class="calc">цена ${mln(d.price)} млн<br>${d.reno_cost >= 0 ? '+ материалы на ремонт ' : '− запас по ремонту '}${mln(Math.abs(d.reno_cost))} млн<br>− мебель и техника ${mln(d.equip_value)} млн<br>= ${fmt(d.ready_m2)} ₸/м² «под ключ»<br>
+     к ЖК ${pct(d.ready_complex)} · к окружению ${pct(d.ready_nearby)} · к району ${pct(d.ready_district)}<br>
+     <span class="muted">отделка ${d.level} (${d.level_source === 'photo' ? 'по фото' : 'со слов продавца'}); аналогов: ЖК ${d.n_complex}, окружение ${d.n_nearby}, район ${d.n_district}</span>
+     ${d.complex_vs_district == null ? '' : `<br>Сам ЖК ${d.complex_vs_district > 0 ? 'дешевле' : 'дороже'} района на ${Math.abs(d.complex_vs_district).toFixed(0)}%`}</p>`;
+  return `<tr class="d"><td colspan="${COLS.length}"><div class="dgrid">
+    <div>${d.photo_url ? `<a href="${d.url}" target="_blank" rel="noopener"><img class="ph" src="${esc(d.photo_url.replace('-full.', '-400x300.'))}" alt=""></a>` : ''}
+      <p style="margin-top:6px"><a href="${d.url}" target="_blank" rel="noopener">Открыть на krisha.kz ↗</a><br><span class="muted">${esc(d.seller_type || '')} · фото: ${d.photo_count} · в базе с ${esc((d.first_seen || '').slice(0, 10))}</span></p></div>
+    <div><h3>Из объявления</h3><p>${esc(d.district || '')}${d.address ? ', ' + esc(d.address) : ''}${d.ceiling ? ' · потолки ' + d.ceiling + ' м' : ''}</p><p>${marks(d)}</p><p class="muted">${esc(d.description)}</p></div>
+    <div><h3>Расчёт выгоды</h3>${calc}</div>
+    <div><h3>ИИ</h3>${ai ? `<p><b>${d.finish_level}/10 · ${LEVELS[d.finish_level]}</b> <span class="muted">уверенность ${d.confidence}, доверие ${d.trust}/5</span></p>
+      <p class="muted">мебель: ${VFURN[d.v_furniture]} · кухня: ${d.kitchen_set === 'yes' ? 'есть' : d.kitchen_set === 'no' ? 'нет' : 'не видно'} · техника: ${esc(d.appliances || 'нет')} · вид: ${VIEW[d.view]}</p>
+      <p>${d.staged ? '<span class="chip b">похоже на рендер</span> ' : ''}${d.not_shown.length ? `<span class="chip w">не показано: ${d.not_shown.map(r => ROOMRU[r]).join(', ')}</span> ` : ''}${claims}</p><p>${esc(d.summary)}</p>` : '<p class="muted">Фото не оценены.</p>'}
+      ${d.verdict ? `<p><span class="chip ${VERDICT[d.verdict][1]}"><b>${VERDICT[d.verdict][0]}</b></span> ${esc(d.reason)}</p><p><span class="good">＋</span> ${esc(d.advantage)}<br><span class="bad">！</span> ${esc(d.risk)}</p>` : ''}</div>
+  </div></td></tr>`;
 }
 
 function groupOrder(a, b) {
@@ -187,33 +173,41 @@ function groupOrder(a, b) {
   if (tab === 'g_year') return (parseInt(a.replace('до ', '0')) || 9999) - (parseInt(b.replace('до ', '0')) || 9999);
   return 0;
 }
-
+function head() {
+  const cols = COLS.map(c => `<col style="width:${c[2]}%">`).join('');
+  const ths = COLS.map((c, i) => `<th data-k="${c[0] || ''}" class="c${c[3]}${c[4] ? ' num' : ''}${[8, 12].includes(i) ? ' sep' : ''}${c[0] === sortKey ? ' on' : ''}">${c[1]}${c[0] === sortKey ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('');
+  return `<colgroup>${cols}</colgroup><thead><tr class="band"><th class="c1" colspan="8">Из объявления</th><th class="c2 sep" colspan="4">Статистика: дешевле аналогов на</th><th class="c3 sep" colspan="3">ИИ</th></tr><tr>${ths}</tr></thead>`;
+}
 function render() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.k === tab));
-  const [key, dir] = SORTS[$('sort').value || 0], list = filtered();
-  const cmpf = (a, b) => { const x = a[key], y = b[key]; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; };
-  const disc = list.filter(d => d.discount_pct != null);
+  const list = filtered();
+  const cmp = (a, b) => { const x = a[sortKey], y = b[sortKey]; if (x == null) return y == null ? 0 : 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * sortDir; };
   $('kpis').innerHTML = [
-    [list.length, 'квартир в выборке'], [fmt(median(list.map(d => d.price_m2))), 'медиана ₸/м²'],
-    [mln(median(list.map(d => d.price))) + ' млн', 'медиана цены'],
-    [list.filter(d => d.benefit_pct >= 10).length, 'выгода 10%+ с учётом ремонта'],
+    [list.length, 'квартир'], [fmt(median(list.map(d => d.price_m2))), 'медиана ₸/м²'],
+    [list.filter(d => d.benefit_pct >= 10).length, 'выгода «под ключ» 10%+'],
+    [list.filter(d => d.finish_level != null).length, 'оценено по фото'],
+    [list.filter(d => d.contradictions > 0).length, 'с расхождениями'],
     [list.filter(d => d.verdict === 'look').length, 'ИИ советует смотреть'],
-    [DATA.filter(d => !d.is_primary).length, 'копий скрыто склейкой'],
-    [list.filter(d => d.finish_level != null).length, 'оценено ИИ по фото'],
-    [list.filter(d => d.contradictions > 0).length, 'с расхождениями текста и фото']
+    [DATA.filter(d => !d.is_primary).length, 'копий скрыто']
   ].map(([v, t]) => `<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('');
   const groups = {}; list.forEach(d => (groups[d[tab]] ||= []).push(d));
   let names = Object.keys(groups).sort(groupOrder);
   if (tab === 'g_complex' || tab === 'g_district') names.sort((a, b) => groups[b].length - groups[a].length);
-  const max = Math.max(1, ...names.map(n => groups[n].length));
-  $('groups').innerHTML = names.map((n, i) => { const g = groups[n].sort(cmpf);
-    return `<details ${i < 2 || names.length < 4 ? 'open' : ''}><summary><h2>${esc(n)}</h2>
+  const max = Math.max(1, ...names.map(n => groups[n].length)), wasOpen = new Set([...document.querySelectorAll('details.grp[open]')].map(e => e.dataset.n)), first = !document.querySelector('details.grp');
+  $('groups').innerHTML = names.map((n, i) => { const g = groups[n].sort(cmp), best = Math.max(...g.map(d => d.benefit_pct ?? -99));
+    return `<details class="grp" data-n="${esc(n)}" ${(first ? i < 2 || names.length < 4 : wasOpen.has(n)) ? 'open' : ''}><summary><h2>${esc(n)}</h2>
       <span class="s">${g.length} кв.</span><span class="s">медиана ${fmt(median(g.map(d => d.price_m2)))} ₸/м²</span>
-      <span class="s">лучшая выгода ${Math.max(...g.map(d => d.benefit_pct ?? -99)).toFixed(0)}%</span>
+      <span class="s">${best > -99 ? 'лучшая выгода ' + best.toFixed(0) + '%' : ''}</span>
       <span class="meter"><i style="width:${g.length / max * 100}%"></i></span></summary>
-      <div class="wrap"><table><thead><tr><th></th><th>Квартира</th><th class="num">Цена</th><th class="num">К аналогам (без ремонта)</th><th class="num">Выгода с учётом ремонта</th><th>Вердикт ИИ</th><th class="num">Аналоги, ₸/м²</th><th>Дом</th><th>Со слов продавца</th><th>По фото (ИИ)</th><th>Продавец</th><th>Описание</th></tr></thead>
-      <tbody>${g.map(row).join('')}</tbody></table></div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
+      <div class="wrap"><table>${head()}<tbody>${g.map(row).join('')}</tbody></table></div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
 }
+$('groups').addEventListener('click', e => {
+  const th = e.target.closest('th[data-k]');
+  if (th && th.dataset.k) { const c = COLS.find(c => c[0] === th.dataset.k); if (sortKey === c[0]) sortDir = -sortDir; else { sortKey = c[0]; sortDir = c[5]; } render(); return; }
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr.r');
+  if (tr) { const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); render(); }
+});
 document.querySelectorAll('.bar select,.bar input').forEach(el => el.addEventListener('input', render));
 render();
 </script>

@@ -2,7 +2,10 @@
 import json
 from pathlib import Path
 
+from .analyst import SCHEMA_SQL as ANALYST_SQL
+from .db import load_flats
 from .enrich import year_bucket
+from .vision import ensure_table
 
 TEMPLATE = Path(__file__).with_name("report_template.html")
 
@@ -24,45 +27,55 @@ def year_label(year, edges):
     return f"{edges[b - 1]}–{edges[b] - 1}"
 
 
+def _table(con, name):
+    return {r["listing_id"]: dict(r) for r in con.execute(f"SELECT * FROM {name}")}
+
+
 def build_report(cfg, con, out_path, log=print):
     step = cfg["buckets"]["price_step_mln"]
     edges = cfg["buckets"]["year_edges"]
-    # Таблицы vision может ещё не быть, если оценка ИИ не запускалась.
-    from .vision import SCHEMA_SQL
-    from .analyst import SCHEMA_SQL as ANALYST_SQL
-    con.executescript(SCHEMA_SQL + ANALYST_SQL)
-    rows = con.execute(
-        "SELECT l.*, v.finish_level, v.confidence, v.wear, v.furniture AS v_furniture, v.kitchen_set, "
-        "v.appliances, v.staged, v.contradictions, v.trust, v.summary, v.raw AS v_raw, "
-        "b.level, b.level_source, b.scenario, b.reno_cost, b.equip_value, b.ready_m2, "
-        "b.comp_ready_m2, b.comp_level AS b_comp_level, b.comp_count AS b_comp_count, "
-        "b.benefit_tg, b.benefit_pct, a.verdict, a.reason, a.advantage, a.risk, m.price_m2, m.finish, m.is_primary, m.dup_count, m.comp_level, "
-        "m.comp_count, m.comp_m2, m.discount_pct, m.discount_tg, "
-        "(SELECT COUNT(*) - 1 FROM price_history p WHERE p.listing_id = l.id) AS price_changes, "
-        "(SELECT price FROM price_history p WHERE p.listing_id = l.id ORDER BY seen_at LIMIT 1) AS first_price "
-        "FROM listings l JOIN metrics m ON m.listing_id = l.id "
-        "LEFT JOIN vision v ON v.listing_id = l.id LEFT JOIN benefit b ON b.listing_id = l.id "
-        "LEFT JOIN analyst a ON a.listing_id = l.id WHERE l.active = 1").fetchall()
+    ensure_table(con)
+    con.executescript(ANALYST_SQL)
+    metrics, benefit = _table(con, "metrics"), _table(con, "benefit")
+    vision, analyst = _table(con, "vision"), _table(con, "analyst")
+    first_price = {}
+    for r in con.execute("SELECT listing_id, price FROM price_history ORDER BY seen_at DESC"):
+        first_price[r["listing_id"]] = r["price"]        # последним запишется самое раннее
 
     data = []
-    for r in rows:
-        d = dict(r)
-        d["g_price"] = price_label(d["price"], step)
-        d["g_year"] = year_label(d["year"], edges)
-        d["g_complex"] = d["complex"] or "ЖК не указан"
-        d["g_district"] = d["district"] or "район не указан"
-        raw = json.loads(d.pop("v_raw")) if d.get("v_raw") else None
-        d.pop("v_raw", None)
-        # Из полного ответа ИИ в отчёт берём опровергнутые и подтверждённые утверждения продавца.
-        d["claims"] = [c for c in raw["claims"] if c["status"] != "not_visible"] if raw else []
-        d["not_shown"] = raw["rooms_not_shown"] if raw else []
-        for k in ("uuid", "is_layout", "active", "posted", "last_seen"):
-            d.pop(k, None)
+    for f in load_flats(con):
+        id_ = f["id"]
+        if id_ not in metrics:
+            continue
+        d = {k: f[k] for k in ("id", "url", "rooms", "area", "floor", "floors", "price", "district",
+                               "address", "complex", "house_type", "year", "condition", "ceiling",
+                               "furniture", "pledged", "seller_type", "description", "photo_count",
+                               "photo_url", "first_seen", "filled")}
+        d.update({k: metrics[id_][k] for k in ("price_m2", "is_primary", "dup_count", "urgent", "bargain")})
+        d.update({k: v for k, v in benefit.get(id_, {}).items() if k != "listing_id"})
+        v = vision.get(id_)
+        if v:
+            raw = json.loads(v["raw"])
+            d.update({"finish_level": v["finish_level"], "confidence": v["confidence"], "wear": v["wear"],
+                      "v_furniture": v["furniture"], "kitchen_set": v["kitchen_set"],
+                      "appliances": v["appliances"], "view": v["view"], "staged": v["staged"],
+                      "contradictions": v["contradictions"], "trust": v["trust"], "summary": v["summary"],
+                      # в отчёт берём только подтверждённые и опровергнутые утверждения продавца
+                      "claims": [c for c in raw["claims"] if c["status"] != "not_visible"],
+                      "not_shown": raw["rooms_not_shown"]})
+        a = analyst.get(id_)
+        if a:
+            d.update({k: a[k] for k in ("verdict", "reason", "advantage", "risk")})
+        d["price_drop"] = max(0, first_price.get(id_, f["price"]) - f["price"])
+        d["g_price"] = price_label(f["price"], step)
+        d["g_year"] = year_label(f["year"], edges)
+        d["g_complex"] = f["complex"] or "ЖК не указан"
+        d["g_district"] = f["district"] or "район не указан"
         data.append(d)
 
     last_run = con.execute("SELECT finished_at FROM runs ORDER BY id DESC LIMIT 1").fetchone()
     meta = {"generated": last_run[0] if last_run else "", "count": len(data),
-            "min_comps": cfg["comps"]["min_count"]}
+            "min_comps": cfg["comps"]["min_count"], "combine": cfg["benefit"]["combine"]}
     html = TEMPLATE.read_text(encoding="utf-8")
     html = html.replace("/*DATA*/[]", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
     html = html.replace("/*META*/{}", json.dumps(meta, ensure_ascii=False))

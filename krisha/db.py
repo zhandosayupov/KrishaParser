@@ -98,3 +98,28 @@ def mark_missing_inactive(con, seen_at):
     """После ПОЛНОГО прохода: всё, что не встретилось, считаем снятым."""
     cur = con.execute("UPDATE listings SET active = 0 WHERE active = 1 AND last_seen < ?", (seen_at,))
     return cur.rowcount
+
+
+def load_flats(con):
+    """Активные квартиры как словари. Пустые ЖК, тип дома и год дозаполняются тем,
+    что ИИ нашёл в тексте и на фото; такие поля перечислены в flat["filled"]."""
+    # Колонки x_* есть только в таблице оценок нового формата.
+    has_vision = "x_complex" in [c[1] for c in con.execute("PRAGMA table_info(vision)")]
+    extra = {}
+    if has_vision:
+        for v in con.execute("SELECT listing_id, x_complex, x_house_type, x_year FROM vision"):
+            extra[v["listing_id"]] = v
+    flats = []
+    for r in con.execute("SELECT * FROM listings WHERE active = 1 AND is_layout = 0 "
+                         "AND price > 0 AND area > 0"):
+        d = dict(r)
+        d["filled"] = []
+        v = extra.get(d["id"])
+        if v:
+            for field, found in (("complex", v["x_complex"]), ("house_type", v["x_house_type"]),
+                                 ("year", v["x_year"])):
+                if d[field] in (None, "") and found:
+                    d[field] = found
+                    d["filled"].append(field)
+        flats.append(d)
+    return flats

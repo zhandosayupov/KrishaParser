@@ -83,7 +83,7 @@ def download_photos(cfg, con, root, log=print, limit=None):
         "LEFT JOIN photo_status s ON s.listing_id = l.id "
         "WHERE l.active = 1 AND m.is_primary = 1 AND l.photo_url IS NOT NULL "
         "AND (s.listing_id IS NULL OR s.photo_url <> l.photo_url) "
-        "ORDER BY m.discount_pct DESC").fetchall()      # сначала самые интересные
+        "ORDER BY l.price / l.area").fetchall()         # сначала самые дешёвые за м²
     if limit:
         rows = rows[:limit]
     log(f"Объявлений без скачанных фото: {len(rows)}")

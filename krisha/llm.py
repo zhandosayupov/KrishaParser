@@ -48,10 +48,12 @@ def _ask_claude_cli(stage, prompt, images, schema):
            "--output-format", "json",
            "--model", stage.get("model", "sonnet"),
            "--json-schema", json.dumps(schema, ensure_ascii=False),
-           "--tools", "Read", "--allowedTools", "Read",
            "--no-session-persistence"]
-    if images:
-        cmd += ["--add-dir", str(Path(images[0]).resolve().parent)]
+    if images:      # инструмент чтения файлов нужен только для картинок
+        cmd += ["--tools", "Read", "--allowedTools", "Read",
+                "--add-dir", str(Path(images[0]).resolve().parent)]
+    else:
+        cmd += ["--tools", ""]
     # Убираем ключи из окружения: иначе запрос молча уйдёт на платный API, а не на подписку.
     env = {k: v for k, v in os.environ.items()
            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}

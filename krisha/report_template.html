@@ -41,6 +41,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .good{color:var(--good);font-weight:600}.bad{color:var(--bad)}.muted{color:var(--muted)}
 .chip{display:inline-block;background:var(--chip);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px 2px 1px 0}
 .chip.w{color:var(--warn)}.chip.b{color:var(--bad)}.chip.g{color:var(--good)}
+.calc{font-size:11px;color:var(--text);margin-top:4px;line-height:1.5}.chip.big{font-size:13px;padding:3px 9px;font-weight:600}
 td.ai{white-space:normal;min-width:270px;max-width:380px}.sum{font-size:12px;margin-top:4px}
 .cmp{display:block;width:110px;height:5px;background:var(--chip);border-radius:3px;margin-top:4px;position:relative}
 .cmp i{position:absolute;top:0;height:100%;border-radius:3px}
@@ -54,7 +55,9 @@ td.ai{white-space:normal;min-width:270px;max-width:380px}.sum{font-size:12px;mar
 </header>
 <div class="tabs" id="tabs"></div>
 <div class="bar">
+  <label>Сценарий<select id="scenario"><option value="">все квартиры</option><option value="renovate">под ремонт (отделка 1–3)</option><option value="ready">готовая (отделка 4–5)</option></select></label>
   <label>Сортировка<select id="sort"></select></label>
+  <label>Вердикт ИИ<select id="verdict"><option value="">любой</option><option value="look">стоит смотреть</option><option value="doubt">сомнительно</option><option value="skip">мимо</option><option value="any">только с вердиктом</option></select></label>
   <label>Комнат<select id="rooms"><option value="">все</option></select></label>
   <label>Район<select id="district"><option value="">все</option></select></label>
   <label>Отделка (со слов продавца)<select id="finish"><option value="">любая</option><option value="finished">с ремонтом</option><option value="rough">черновая</option><option value="needs_repair">требует ремонта</option><option value="unknown">не указана</option></select></label>
@@ -70,6 +73,7 @@ td.ai{white-space:normal;min-width:270px;max-width:380px}.sum{font-size:12px;mar
 <main>
   <div class="kpis" id="kpis"></div>
   <div id="groups"></div>
+  <p class="note">Выгода с учётом ремонта: цена приводится к состоянию «под ключ» (плюс стоимость ремонта до хорошего, минус остающиеся мебель и техника) и сравнивается с такой же ценой у аналогов. Тарифы ремонта и обстановки — примерные, задаются в config.yaml. Уровень отделки берётся по фото (ИИ), а где фото не оценены — со слов продавца.</p>
   <p class="note">Скидка — насколько цена за м² ниже медианы аналогов. Аналоги ищутся по шагам: тот же ЖК с той же отделкой → тот же ЖК → рядом (район, тип дома, годы, площадь ±20%, отделка) → район. Аналоги пока подбираются по отделке со слов продавца; оценка ИИ по фото показана рядом для сверки. Цены — из объявлений, не из сделок.</p>
 </main>
 <script>
@@ -83,10 +87,12 @@ const FINISH = {finished:'с ремонтом', rough:'черновая', needs_
 const LEVEL = {'complex+finish':'ЖК + отделка', complex:'ЖК', nearby:'рядом', district:'район', none:'нет аналогов'};
 const TABS = [['g_price','По цене'],['g_year','По году постройки'],['g_complex','По ЖК'],['g_district','По району']];
 const SORTS = [
-  ['discount_pct',-1,'Скидка, % (сначала большая)'],['discount_tg',-1,'Скидка, тенге'],
+  ['benefit_pct',-1,'Выгода с учётом ремонта, %'],['benefit_tg',-1,'Выгода с учётом ремонта, тенге'],['vrank',-1,'Вердикт ИИ (сначала лучшие)'],
+  ['discount_pct',-1,'Скидка к аналогам, % (без учёта ремонта)'],['discount_tg',-1,'Скидка, тенге'],
   ['price',1,'Цена (сначала дешёвые)'],['price',-1,'Цена (сначала дорогие)'],
   ['price_m2',1,'Цена за м²'],['area',-1,'Площадь'],['year',-1,'Год постройки'],
   ['first_seen',-1,'Новые объявления'],['contradictions',-1,'Расхождения текста и фото'],['trust',1,'Доверие (сначала низкое)'],['finish_level',-1,'Отделка по фото (сначала лучшая)'],['price_drop',-1,'Снижение цены']];
+DATA.forEach(d => d.vrank = {look: 3, doubt: 2, skip: 1}[d.verdict] || null);
 DATA.forEach(d => d.price_drop = d.first_price && d.first_price > d.price ? d.first_price - d.price : 0);
 let tab = 'g_price';
 
@@ -105,6 +111,8 @@ function filtered() {
   return DATA.filter(d =>
     ($('dups').checked || d.is_primary) && (!$('pledge').checked || !d.pledged) &&
     (!$('rooms').value || d.rooms == $('rooms').value) && (!$('district').value || d.district === $('district').value) &&
+    (!$('scenario').value || d.scenario === $('scenario').value) &&
+    (!$('verdict').value || ($('verdict').value === 'any' ? d.verdict : d.verdict === $('verdict').value)) &&
     (!$('finish').value || d.finish === $('finish').value) && vmatch(d) && (!$('lies').checked || d.contradictions > 0) && (!$('seller').value || d.seller_type === $('seller').value) &&
     (isNaN(mind) || (d.discount_pct != null && d.discount_pct >= mind)) && (isNaN(maxp) || d.price <= maxp * 1e6) &&
     (!q || [d.complex, d.address, d.description, d.district].join(' ').toLowerCase().includes(q)));
@@ -127,6 +135,26 @@ function aiCell(d) {
     <div class="sum">${esc(d.summary)}</div>`;
 }
 
+const VERDICT = {look: ['стоит смотреть', 'g'], doubt: ['сомнительно', 'w'], skip: ['мимо', 'b']};
+const BLEVEL = {complex: 'ЖК', nearby: 'рядом', district: 'район', none: 'нет аналогов'};
+
+function benefitCell(d) {
+  if (d.level == null) return '<span class="muted">нет уровня отделки</span>';
+  if (d.benefit_pct == null) return '<span class="muted">мало аналогов</span>';
+  const p = d.benefit_pct, cls = p >= 5 ? 'good' : p <= -5 ? 'bad' : '';
+  return `<span class="${cls}">${p > 0 ? '+' : '−'}${mln(Math.abs(d.benefit_tg))} млн · ${Math.abs(p).toFixed(0)}%</span>
+    <div class="calc">цена ${mln(d.price)}<br>${d.reno_cost >= 0 ? '+ ремонт ' : '− запас ремонта '}${mln(Math.abs(d.reno_cost))}<br>− обстановка ${mln(d.equip_value)}<br>
+    = ${fmt(d.ready_m2)} ₸/м² «под ключ»<br>у аналогов ${fmt(d.comp_ready_m2)} <span class="muted">(${BLEVEL[d.b_comp_level]} · ${d.b_comp_count})</span><br>
+    <span class="muted">отделка ${d.level} · ${d.level_source === 'photo' ? 'по фото' : 'со слов продавца'}</span></div>`;
+}
+
+function verdictCell(d) {
+  if (!d.verdict) return '<span class="muted">—</span>';
+  const [name, c] = VERDICT[d.verdict];
+  return `<span class="chip ${c} big">${name}</span><div class="sum">${esc(d.reason)}</div>
+    <div class="sum"><span class="good">＋</span> ${esc(d.advantage)}</div><div class="sum"><span class="bad">！</span> ${esc(d.risk)}</div>`;
+}
+
 function row(d) {
   const p = d.discount_pct, cls = p == null ? 'muted' : p >= 5 ? 'good' : p <= -5 ? 'bad' : '';
   let cmp = '';
@@ -144,6 +172,8 @@ function row(d) {
     <td><a href="${d.url}" target="_blank" rel="noopener">${d.rooms}-комн · ${d.area} м² · ${d.floor ?? '?'}/${d.floors ?? '?'} эт.</a><br>${esc(d.complex || '—')}<br><span class="muted">${esc(d.address || '')}</span></td>
     <td class="num"><b>${mln(d.price)} млн</b><br><span class="muted">${fmt(d.price_m2)} ₸/м²</span></td>
     <td class="num"><span class="${cls}">${p == null ? '—' : (p > 0 ? '−' : '+') + Math.abs(p).toFixed(1) + '%'}</span><br><span class="muted">${d.discount_tg == null ? '' : mln(d.discount_tg) + ' млн'}</span>${cmp}</td>
+    <td class="num ben">${benefitCell(d)}</td>
+    <td class="ai">${verdictCell(d)}</td>
     <td class="num">${fmt(d.comp_m2)}<br><span class="muted">${LEVEL[d.comp_level]} · ${d.comp_count}</span></td>
     <td>${d.year ?? '—'}<br><span class="muted">${esc(d.house_type || '')}${d.ceiling ? ' · ' + d.ceiling + ' м' : ''}</span></td>
     <td>${FINISH[d.finish]}<br><span class="muted">${esc(d.condition || '')}</span></td>
@@ -166,7 +196,8 @@ function render() {
   $('kpis').innerHTML = [
     [list.length, 'квартир в выборке'], [fmt(median(list.map(d => d.price_m2))), 'медиана ₸/м²'],
     [mln(median(list.map(d => d.price))) + ' млн', 'медиана цены'],
-    [disc.filter(d => d.discount_pct >= 10).length, 'дешевле аналогов на 10%+'],
+    [list.filter(d => d.benefit_pct >= 10).length, 'выгода 10%+ с учётом ремонта'],
+    [list.filter(d => d.verdict === 'look').length, 'ИИ советует смотреть'],
     [DATA.filter(d => !d.is_primary).length, 'копий скрыто склейкой'],
     [list.filter(d => d.finish_level != null).length, 'оценено ИИ по фото'],
     [list.filter(d => d.contradictions > 0).length, 'с расхождениями текста и фото']
@@ -178,9 +209,9 @@ function render() {
   $('groups').innerHTML = names.map((n, i) => { const g = groups[n].sort(cmpf);
     return `<details ${i < 2 || names.length < 4 ? 'open' : ''}><summary><h2>${esc(n)}</h2>
       <span class="s">${g.length} кв.</span><span class="s">медиана ${fmt(median(g.map(d => d.price_m2)))} ₸/м²</span>
-      <span class="s">лучшая скидка ${Math.max(...g.map(d => d.discount_pct ?? -99)).toFixed(0)}%</span>
+      <span class="s">лучшая выгода ${Math.max(...g.map(d => d.benefit_pct ?? -99)).toFixed(0)}%</span>
       <span class="meter"><i style="width:${g.length / max * 100}%"></i></span></summary>
-      <div class="wrap"><table><thead><tr><th></th><th>Квартира</th><th class="num">Цена</th><th class="num">К аналогам</th><th class="num">Аналоги, ₸/м²</th><th>Дом</th><th>Со слов продавца</th><th>По фото (ИИ)</th><th>Продавец</th><th>Описание</th></tr></thead>
+      <div class="wrap"><table><thead><tr><th></th><th>Квартира</th><th class="num">Цена</th><th class="num">К аналогам (без ремонта)</th><th class="num">Выгода с учётом ремонта</th><th>Вердикт ИИ</th><th class="num">Аналоги, ₸/м²</th><th>Дом</th><th>Со слов продавца</th><th>По фото (ИИ)</th><th>Продавец</th><th>Описание</th></tr></thead>
       <tbody>${g.map(row).join('')}</tbody></table></div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
 }
 document.querySelectorAll('.bar select,.bar input').forEach(el => el.addEventListener('input', render));

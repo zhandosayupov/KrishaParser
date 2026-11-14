@@ -29,15 +29,20 @@ def build_report(cfg, con, out_path, log=print):
     edges = cfg["buckets"]["year_edges"]
     # Таблицы vision может ещё не быть, если оценка ИИ не запускалась.
     from .vision import SCHEMA_SQL
-    con.executescript(SCHEMA_SQL)
+    from .analyst import SCHEMA_SQL as ANALYST_SQL
+    con.executescript(SCHEMA_SQL + ANALYST_SQL)
     rows = con.execute(
         "SELECT l.*, v.finish_level, v.confidence, v.wear, v.furniture AS v_furniture, v.kitchen_set, "
-        "v.appliances, v.staged, v.contradictions, v.trust, v.summary, v.raw AS v_raw, m.price_m2, m.finish, m.is_primary, m.dup_count, m.comp_level, "
+        "v.appliances, v.staged, v.contradictions, v.trust, v.summary, v.raw AS v_raw, "
+        "b.level, b.level_source, b.scenario, b.reno_cost, b.equip_value, b.ready_m2, "
+        "b.comp_ready_m2, b.comp_level AS b_comp_level, b.comp_count AS b_comp_count, "
+        "b.benefit_tg, b.benefit_pct, a.verdict, a.reason, a.advantage, a.risk, m.price_m2, m.finish, m.is_primary, m.dup_count, m.comp_level, "
         "m.comp_count, m.comp_m2, m.discount_pct, m.discount_tg, "
         "(SELECT COUNT(*) - 1 FROM price_history p WHERE p.listing_id = l.id) AS price_changes, "
         "(SELECT price FROM price_history p WHERE p.listing_id = l.id ORDER BY seen_at LIMIT 1) AS first_price "
         "FROM listings l JOIN metrics m ON m.listing_id = l.id "
-        "LEFT JOIN vision v ON v.listing_id = l.id WHERE l.active = 1").fetchall()
+        "LEFT JOIN vision v ON v.listing_id = l.id LEFT JOIN benefit b ON b.listing_id = l.id "
+        "LEFT JOIN analyst a ON a.listing_id = l.id WHERE l.active = 1").fetchall()
 
     data = []
     for r in rows:

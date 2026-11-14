@@ -5,6 +5,7 @@
     python run.py enrich    — дубли, аналоги и скидки
     python run.py photos    — скачать фото (photos 20 — только для 20 объявлений)
     python run.py vision    — оценка фото ИИ (vision 5 — только для 5 квартир)
+    python run.py analyst   — вердикт ИИ по лучшим кандидатам (analyst 5 — по 5 в сценарии)
     python run.py report    — построить report.html
     python run.py stats     — краткая сводка по базе
 
@@ -13,6 +14,8 @@
 import sys
 
 from krisha import db
+from krisha.analyst import analyse
+from krisha.benefit import compute as compute_benefit
 from krisha.collector import collect
 from krisha.enrich import enrich
 from krisha.photos import download_photos
@@ -37,9 +40,17 @@ def cmd_stats(cfg, con):
 
 def cmd_enrich(cfg, con):
     enrich(cfg, con)
+    compute_benefit(cfg, con)
+
+
+def cmd_analyst(cfg, con):
+    compute_benefit(cfg, con)            # выгода должна учитывать свежие оценки фото
+    limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    print("Вердиктов вынесено:", analyse(cfg, con, limit=limit))
 
 
 def cmd_report(cfg, con):
+    compute_benefit(cfg, con)
     build_report(cfg, con, ROOT / cfg["paths"]["report"])
 
 
@@ -61,12 +72,13 @@ def cmd_all(cfg, con):
         print("Ничего не собрано, отчёт не обновляю.")
         return
     enrich(cfg, con)
+    compute_benefit(cfg, con)
     build_report(cfg, con, ROOT / cfg["paths"]["report"])
 
 
 COMMANDS = {"all": cmd_all, "collect": cmd_collect, "enrich": cmd_enrich,
             "photos": cmd_photos,
-            "vision": cmd_vision,
+            "vision": cmd_vision, "analyst": cmd_analyst,
             "report": cmd_report, "stats": cmd_stats}
 
 if __name__ == "__main__":

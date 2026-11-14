@@ -27,12 +27,17 @@ def year_label(year, edges):
 def build_report(cfg, con, out_path, log=print):
     step = cfg["buckets"]["price_step_mln"]
     edges = cfg["buckets"]["year_edges"]
+    # Таблицы vision может ещё не быть, если оценка ИИ не запускалась.
+    from .vision import SCHEMA_SQL
+    con.executescript(SCHEMA_SQL)
     rows = con.execute(
-        "SELECT l.*, m.price_m2, m.finish, m.is_primary, m.dup_count, m.comp_level, "
+        "SELECT l.*, v.finish_level, v.confidence, v.wear, v.furniture AS v_furniture, v.kitchen_set, "
+        "v.appliances, v.staged, v.contradictions, v.trust, v.summary, v.raw AS v_raw, m.price_m2, m.finish, m.is_primary, m.dup_count, m.comp_level, "
         "m.comp_count, m.comp_m2, m.discount_pct, m.discount_tg, "
         "(SELECT COUNT(*) - 1 FROM price_history p WHERE p.listing_id = l.id) AS price_changes, "
         "(SELECT price FROM price_history p WHERE p.listing_id = l.id ORDER BY seen_at LIMIT 1) AS first_price "
-        "FROM listings l JOIN metrics m ON m.listing_id = l.id WHERE l.active = 1").fetchall()
+        "FROM listings l JOIN metrics m ON m.listing_id = l.id "
+        "LEFT JOIN vision v ON v.listing_id = l.id WHERE l.active = 1").fetchall()
 
     data = []
     for r in rows:
@@ -41,6 +46,11 @@ def build_report(cfg, con, out_path, log=print):
         d["g_year"] = year_label(d["year"], edges)
         d["g_complex"] = d["complex"] or "ЖК не указан"
         d["g_district"] = d["district"] or "район не указан"
+        raw = json.loads(d.pop("v_raw")) if d.get("v_raw") else None
+        d.pop("v_raw", None)
+        # Из полного ответа ИИ в отчёт берём опровергнутые и подтверждённые утверждения продавца.
+        d["claims"] = [c for c in raw["claims"] if c["status"] != "not_visible"] if raw else []
+        d["not_shown"] = raw["rooms_not_shown"] if raw else []
         for k in ("uuid", "is_layout", "active", "posted", "last_seen"):
             d.pop(k, None)
         data.append(d)

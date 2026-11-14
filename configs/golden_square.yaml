@@ -1,0 +1,50 @@
+# Пробный поиск: Золотой квадрат (Абая – Толе би – Сейфуллина – Достык), любые годы, до 80 млн.
+# Запуск: python run.py all --config configs/golden_square.yaml
+
+# Ссылка с krisha.kz: можно вставить прямо из адресной строки,
+# с карты (/map/...) или из обычного списка. Фильтры и границы (areas=) берутся из неё.
+search_url: "https://krisha.kz/prodazha/kvartiry/almaty/?das[floor_not_last]=1&das[live.rooms][]=1&das[live.rooms][]=2&das[live.rooms][]=3&das[live.square][from]=55&das[price][to]=80000000&areas=p43.2385,76.9325,43.2560,76.9325,43.2560,76.9580,43.2385,76.9580,43.2385,76.9325"
+
+# Сборщик: ведём себя как один неторопливый человек.
+collector:
+  pause_min_sec: 2.5      # пауза между запросами, от
+  pause_max_sec: 5.0      # и до (выбирается случайно)
+  max_pages: 100          # предохранитель от бесконечного цикла
+  timeout_sec: 30
+
+# Фото: качаются напрямую с фотосервера krisha, в карточки не заходим.
+photos:
+  dir: "data/photos"
+  size: "750x470"          # размер файла; хватает для оценки ремонта и весит немного
+  max_per_listing: 12      # больше фото на объявление не берём
+  stop_after_misses: 8     # сколько пропусков подряд означает "фото кончились"
+  pause_min_sec: 0.15
+  pause_max_sec: 0.45
+
+# ИИ. Для каждого этапа свой провайдер и модель — меняются здесь, код трогать не нужно.
+#   claude_cli        — Claude по подписке, без API-ключа. Один раз выполнить: claude auth login
+#   openai_compatible — Gemini, Groq, OpenRouter, Ollama и т.п. Пример:
+#       provider: openai_compatible
+#       base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+#       model: "gemini-2.5-flash"
+#       api_key_env: "GEMINI_API_KEY"     # имя переменной окружения с ключом
+llm:
+  vision:                    # оценка фото и сверка с текстом
+    provider: claude_cli
+    model: sonnet
+    timeout_sec: 300
+
+# Корзины для разбивок в отчёте.
+buckets:
+  price_step_mln: 10                                   # 0-10, 10-20, ... млн тг
+  year_edges: [1990, 2000, 2010, 2015, 2020, 2027]     # до 1990, 1990-2000, ..., 2027+
+
+# Подбор аналогов.
+comps:
+  min_count: 5            # меньше аналогов -> помечаем "мало данных"
+  area_tolerance: 0.20    # аналоги в пределах +-20% площади
+
+# Файлы.
+paths:
+  database: "data/golden_square.sqlite"
+  report: "report_golden_square.html"

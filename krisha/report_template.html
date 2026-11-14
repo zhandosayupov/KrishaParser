@@ -40,7 +40,8 @@ img.ph{width:96px;height:72px;object-fit:cover;border-radius:5px;background:var(
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .good{color:var(--good);font-weight:600}.bad{color:var(--bad)}.muted{color:var(--muted)}
 .chip{display:inline-block;background:var(--chip);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px 2px 1px 0}
-.chip.w{color:var(--warn)}.chip.b{color:var(--bad)}
+.chip.w{color:var(--warn)}.chip.b{color:var(--bad)}.chip.g{color:var(--good)}
+td.ai{white-space:normal;min-width:270px;max-width:380px}.sum{font-size:12px;margin-top:4px}
 .cmp{display:block;width:110px;height:5px;background:var(--chip);border-radius:3px;margin-top:4px;position:relative}
 .cmp i{position:absolute;top:0;height:100%;border-radius:3px}
 .note{color:var(--muted);font-size:12px;margin:14px 0}
@@ -57,17 +58,19 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <label>Комнат<select id="rooms"><option value="">все</option></select></label>
   <label>Район<select id="district"><option value="">все</option></select></label>
   <label>Отделка (со слов продавца)<select id="finish"><option value="">любая</option><option value="finished">с ремонтом</option><option value="rough">черновая</option><option value="needs_repair">требует ремонта</option><option value="unknown">не указана</option></select></label>
+  <label>Отделка по фото (ИИ)<select id="vlevel"><option value="">любая</option><option value="low">1–2 без отделки</option><option value="3">3 от застройщика</option><option value="high">4–5 с ремонтом</option><option value="none">не оценено</option></select></label>
   <label>Продавец<select id="seller"><option value="">все</option></select></label>
   <label>Скидка от, %<input type="number" id="mind" step="1" placeholder="—"></label>
   <label>Цена до, млн<input type="number" id="maxp" step="1" placeholder="—"></label>
   <label>Поиск<input type="search" id="q" placeholder="ЖК, адрес, текст"></label>
   <label class="check"><input type="checkbox" id="dups"> показывать копии</label>
   <label class="check"><input type="checkbox" id="pledge" checked> скрыть залоговые</label>
+  <label class="check"><input type="checkbox" id="lies"> только с расхождениями</label>
 </div>
 <main>
   <div class="kpis" id="kpis"></div>
   <div id="groups"></div>
-  <p class="note">Скидка — насколько цена за м² ниже медианы аналогов. Аналоги ищутся по шагам: тот же ЖК с той же отделкой → тот же ЖК → рядом (район, тип дома, годы, площадь ±20%, отделка) → район. Отделка пока взята со слов продавца, по фото не проверена. Цены — из объявлений, не из сделок.</p>
+  <p class="note">Скидка — насколько цена за м² ниже медианы аналогов. Аналоги ищутся по шагам: тот же ЖК с той же отделкой → тот же ЖК → рядом (район, тип дома, годы, площадь ±20%, отделка) → район. Аналоги пока подбираются по отделке со слов продавца; оценка ИИ по фото показана рядом для сверки. Цены — из объявлений, не из сделок.</p>
 </main>
 <script>
 const DATA = /*DATA*/[];
@@ -83,7 +86,7 @@ const SORTS = [
   ['discount_pct',-1,'Скидка, % (сначала большая)'],['discount_tg',-1,'Скидка, тенге'],
   ['price',1,'Цена (сначала дешёвые)'],['price',-1,'Цена (сначала дорогие)'],
   ['price_m2',1,'Цена за м²'],['area',-1,'Площадь'],['year',-1,'Год постройки'],
-  ['first_seen',-1,'Новые объявления'],['price_drop',-1,'Снижение цены']];
+  ['first_seen',-1,'Новые объявления'],['contradictions',-1,'Расхождения текста и фото'],['trust',1,'Доверие (сначала низкое)'],['finish_level',-1,'Отделка по фото (сначала лучшая)'],['price_drop',-1,'Снижение цены']];
 DATA.forEach(d => d.price_drop = d.first_price && d.first_price > d.price ? d.first_price - d.price : 0);
 let tab = 'g_price';
 
@@ -102,9 +105,26 @@ function filtered() {
   return DATA.filter(d =>
     ($('dups').checked || d.is_primary) && (!$('pledge').checked || !d.pledged) &&
     (!$('rooms').value || d.rooms == $('rooms').value) && (!$('district').value || d.district === $('district').value) &&
-    (!$('finish').value || d.finish === $('finish').value) && (!$('seller').value || d.seller_type === $('seller').value) &&
+    (!$('finish').value || d.finish === $('finish').value) && vmatch(d) && (!$('lies').checked || d.contradictions > 0) && (!$('seller').value || d.seller_type === $('seller').value) &&
     (isNaN(mind) || (d.discount_pct != null && d.discount_pct >= mind)) && (isNaN(maxp) || d.price <= maxp * 1e6) &&
     (!q || [d.complex, d.address, d.description, d.district].join(' ').toLowerCase().includes(q)));
+}
+
+function vmatch(d) {
+  const v = $('vlevel').value, l = d.finish_level;
+  return !v || (v === 'none' ? l == null : l == null ? false : v === 'low' ? l <= 2 : v === 'high' ? l >= 4 : l == 3);
+}
+const VLEVEL = {1:'черновая', 2:'предчистовая', 3:'от застройщика', 4:'хороший ремонт', 5:'дизайнерский'};
+const VFURN = {none:'нет', partial:'частично', full:'полностью', not_visible:'не видно'};
+const ROOMRU = {kitchen:'кухня', bathroom:'санузел', living:'комната'};
+
+function aiCell(d) {
+  if (d.finish_level == null) return '<span class="muted">не оценено</span>';
+  const claims = d.claims.map(c => `<span class="chip ${c.status === 'contradicted' ? 'b' : 'g'}">${c.status === 'contradicted' ? '✗' : '✓'} ${esc(c.claim)}</span>`).join('');
+  return `<b>${d.finish_level} · ${VLEVEL[d.finish_level]}</b> <span class="muted">доверие ${d.trust}/5</span><br>
+    <span class="muted">мебель: ${VFURN[d.v_furniture]} · кухня: ${d.kitchen_set === 'yes' ? 'есть' : d.kitchen_set === 'no' ? 'нет' : 'не видно'}${d.appliances ? ' · ' + esc(d.appliances) : ''}</span><br>
+    ${d.staged ? '<span class="chip b">похоже на рендер</span>' : ''}${d.not_shown.length ? `<span class="chip w">не показано: ${d.not_shown.map(r => ROOMRU[r]).join(', ')}</span>` : ''}${claims}
+    <div class="sum">${esc(d.summary)}</div>`;
 }
 
 function row(d) {
@@ -127,6 +147,7 @@ function row(d) {
     <td class="num">${fmt(d.comp_m2)}<br><span class="muted">${LEVEL[d.comp_level]} · ${d.comp_count}</span></td>
     <td>${d.year ?? '—'}<br><span class="muted">${esc(d.house_type || '')}${d.ceiling ? ' · ' + d.ceiling + ' м' : ''}</span></td>
     <td>${FINISH[d.finish]}<br><span class="muted">${esc(d.condition || '')}</span></td>
+    <td class="ai">${aiCell(d)}</td>
     <td>${esc(d.seller_type || '')}<br><span class="muted">с ${esc((d.first_seen || '').slice(0, 10))}</span></td>
     <td class="desc">${chips}${chips ? '<br>' : ''}${esc(d.description)}</td></tr>`;
 }
@@ -146,7 +167,9 @@ function render() {
     [list.length, 'квартир в выборке'], [fmt(median(list.map(d => d.price_m2))), 'медиана ₸/м²'],
     [mln(median(list.map(d => d.price))) + ' млн', 'медиана цены'],
     [disc.filter(d => d.discount_pct >= 10).length, 'дешевле аналогов на 10%+'],
-    [DATA.filter(d => !d.is_primary).length, 'копий скрыто склейкой']
+    [DATA.filter(d => !d.is_primary).length, 'копий скрыто склейкой'],
+    [list.filter(d => d.finish_level != null).length, 'оценено ИИ по фото'],
+    [list.filter(d => d.contradictions > 0).length, 'с расхождениями текста и фото']
   ].map(([v, t]) => `<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('');
   const groups = {}; list.forEach(d => (groups[d[tab]] ||= []).push(d));
   let names = Object.keys(groups).sort(groupOrder);
@@ -157,7 +180,7 @@ function render() {
       <span class="s">${g.length} кв.</span><span class="s">медиана ${fmt(median(g.map(d => d.price_m2)))} ₸/м²</span>
       <span class="s">лучшая скидка ${Math.max(...g.map(d => d.discount_pct ?? -99)).toFixed(0)}%</span>
       <span class="meter"><i style="width:${g.length / max * 100}%"></i></span></summary>
-      <div class="wrap"><table><thead><tr><th></th><th>Квартира</th><th class="num">Цена</th><th class="num">К аналогам</th><th class="num">Аналоги, ₸/м²</th><th>Дом</th><th>Отделка</th><th>Продавец</th><th>Описание</th></tr></thead>
+      <div class="wrap"><table><thead><tr><th></th><th>Квартира</th><th class="num">Цена</th><th class="num">К аналогам</th><th class="num">Аналоги, ₸/м²</th><th>Дом</th><th>Со слов продавца</th><th>По фото (ИИ)</th><th>Продавец</th><th>Описание</th></tr></thead>
       <tbody>${g.map(row).join('')}</tbody></table></div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
 }
 document.querySelectorAll('.bar select,.bar input').forEach(el => el.addEventListener('input', render));

@@ -7,6 +7,8 @@
     python run.py vision    — оценка фото ИИ (vision 5 — только для 5 квартир)
     python run.py report    — построить report.html
     python run.py stats     — краткая сводка по базе
+
+Другой набор настроек: добавьте  --config configs/golden_square.yaml
 """
 import sys
 
@@ -69,9 +71,16 @@ COMMANDS = {"all": cmd_all, "collect": cmd_collect, "enrich": cmd_enrich,
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    name = sys.argv[1] if len(sys.argv) > 1 else "all"
+    args = sys.argv[1:]
+    config_path = None
+    if "--config" in args:                    # другой файл настроек: --config configs/xxx.yaml
+        i = args.index("--config")
+        config_path = args[i + 1]
+        del args[i:i + 2]
+    sys.argv = [sys.argv[0], *args]           # команды читают свои числа из sys.argv[2]
+    name = args[0] if args else "all"
     if name not in COMMANDS:
         sys.exit(__doc__)
-    cfg = load_config()
+    cfg = load_config(config_path)
     con = db.connect(ROOT / cfg["paths"]["database"])
     COMMANDS[name](cfg, con)

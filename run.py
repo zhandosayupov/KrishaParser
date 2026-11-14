@@ -4,6 +4,7 @@
     python run.py collect   — только собрать объявления в базу
     python run.py enrich    — дубли, аналоги и скидки
     python run.py photos    — скачать фото (photos 20 — только для 20 объявлений)
+    python run.py vision    — оценка фото ИИ (vision 5 — только для 5 квартир)
     python run.py report    — построить report.html
     python run.py stats     — краткая сводка по базе
 """
@@ -14,6 +15,7 @@ from krisha.collector import collect
 from krisha.enrich import enrich
 from krisha.photos import download_photos
 from krisha.report import build_report
+from krisha.vision import assess
 from krisha.config import load_config, ROOT
 
 
@@ -45,6 +47,11 @@ def cmd_photos(cfg, con):
     print("Скачано фото:", total)
 
 
+def cmd_vision(cfg, con):
+    limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    print("Оценено квартир:", assess(cfg, con, ROOT, limit=limit))
+
+
 def cmd_all(cfg, con):
     """Полный цикл: собрать, посчитать, построить отчёт."""
     stats = collect(cfg, con)
@@ -57,6 +64,7 @@ def cmd_all(cfg, con):
 
 COMMANDS = {"all": cmd_all, "collect": cmd_collect, "enrich": cmd_enrich,
             "photos": cmd_photos,
+            "vision": cmd_vision,
             "report": cmd_report, "stats": cmd_stats}
 
 if __name__ == "__main__":

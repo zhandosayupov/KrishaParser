@@ -20,6 +20,19 @@ photos:
   pause_min_sec: 0.15
   pause_max_sec: 0.45
 
+# ИИ. Для каждого этапа свой провайдер и модель — меняются здесь, код трогать не нужно.
+#   claude_cli        — Claude по подписке, без API-ключа. Один раз выполнить: claude auth login
+#   openai_compatible — Gemini, Groq, OpenRouter, Ollama и т.п. Пример:
+#       provider: openai_compatible
+#       base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+#       model: "gemini-2.5-flash"
+#       api_key_env: "GEMINI_API_KEY"     # имя переменной окружения с ключом
+llm:
+  vision:                    # оценка фото и сверка с текстом
+    provider: claude_cli
+    model: sonnet
+    timeout_sec: 300
+
 # Корзины для разбивок в отчёте.
 buckets:
   price_step_mln: 10                                   # 0-10, 10-20, ... млн тг

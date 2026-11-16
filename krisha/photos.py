@@ -143,7 +143,8 @@ def download_photos(cfg, con, root, log=print, limit=None):
 
     _stop.clear()
     total = done = 0
-    with ThreadPoolExecutor(max_workers=threads) as pool:
+    pool = ThreadPoolExecutor(max_workers=threads)
+    try:
         jobs = [pool.submit(fetch_listing, r["id"], r["photo_url"], r["photo_count"], c, root)
                 for r in rows]
         for job in as_completed(jobs):
@@ -162,4 +163,8 @@ def download_photos(cfg, con, root, log=print, limit=None):
             done += 1
             if done % 50 == 0 or done == len(rows):
                 log(f"  {done}/{len(rows)} объявлений, фото: {total}")
+    finally:
+        # При любой ошибке бросаем очередь сразу: иначе потоки докачают всё, а в базу это не попадёт.
+        _stop.set()
+        pool.shutdown(cancel_futures=True)
     return total

@@ -65,7 +65,9 @@ def describe(flat, vision, b):
     """Уровень отделки и поправки (ремонт, обстановка) для одной квартиры. None — уровня нет."""
     area = flat["area"]
     size = 0 if area <= b["small_flat_max_m2"] else 1      # 0 маленькая, 1 большая
-    if vision:
+    # Оценке с низкой уверенностью не верим: обычно это объявления, где вместо интерьера
+    # только планировка, рендеры или фасад. Тогда берём слова продавца.
+    if vision and vision["confidence"] != "low":
         level, source = vision["finish_level"], "photo"
         furniture = vision["furniture"]
         furniture_class = json.loads(vision["raw"]).get("furniture_class", "mid")
@@ -146,7 +148,9 @@ def compute(cfg, con, log=print):
         return {k: median(v) for k, v in by.items() if len(v) >= min_count}
     complex_med, district_med = med("complex"), med("district")
 
-    con.executescript(SCHEMA)
+    # Сначала всё считаем (это минуты), потом пишем одним коротким заходом:
+    # так база не заперта для других этапов, которые идут одновременно.
+    out = []
     for x in items:
         g = groups(x)
         raw = {m: pct_below(x, g[m], "raw_m2") for m in METHODS}
@@ -163,8 +167,7 @@ def compute(cfg, con, log=print):
             dm = district_med[x["district"]]
             cvd = (dm - complex_med[x["complex"]]) / dm * 100
         r1 = lambda v: None if v is None else round(v, 1)
-        con.execute(
-            "INSERT INTO benefit VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+        out.append((
                 x["id"],
                 r1(raw["complex"][0]), raw["complex"][1], r1(raw["nearby"][0]), raw["nearby"][1],
                 r1(raw["district"][0]), raw["district"][1], r1(raw_pct),
@@ -173,6 +176,8 @@ def compute(cfg, con, log=print):
                 r1(ready["complex"]), r1(ready["nearby"]), r1(ready["district"]),
                 r1(benefit_pct), None if benefit_tg is None else round(benefit_tg),
                 sum(1 for v in ready.values() if v is not None), r1(cvd)))
+    con.executescript(SCHEMA)
+    con.executemany("INSERT INTO benefit VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", out)
     con.commit()
     with_level = [x for x in items if x["d"]]
     by_photo = sum(1 for x in with_level if x["d"]["source"] == "photo")

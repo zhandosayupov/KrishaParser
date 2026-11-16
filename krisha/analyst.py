@@ -5,9 +5,11 @@
 поэтому запрос короткий и дешёвый. Запускается только для лучших по выгоде квартир.
 """
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .db import load_flats
-from .llm import ask, LLMError, LLMUnavailable
+from .llm import ask, usage_line, LLMError, LLMUnavailable
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS analyst (
@@ -115,7 +117,8 @@ def analyse(cfg, con, log=print, limit=None):
     log(f"Кандидатов для аналитика: {len(ids)} (провайдер {stage['provider']}, модель {stage.get('model')})")
 
     flats = {f["id"]: f for f in load_flats(con)}
-    done = 0
+    # Запросы готовим заранее в главном потоке: с базой работает только он.
+    tasks = []
     for id_ in ids:
         f = flats[id_]
         b = con.execute("SELECT * FROM benefit WHERE listing_id = ?", (id_,)).fetchone()
@@ -151,13 +154,29 @@ def analyse(cfg, con, log=print, limit=None):
             n_district=b["n_district"], benefit=mln(b["benefit_tg"]), benefit_pct=b["benefit_pct"],
             complex_note=complex_note, vision=_vision_text(v),
             description=f["description"] or "текста нет")
+        tasks.append((id_, basis, prompt))
+
+    stop = threading.Event()      # поднимается, когда ИИ недоступен (нет входа, кончился лимит)
+
+    def work(id_, basis, prompt):
+        """Работа одного потока: только запрос к ИИ. В базу не пишет."""
+        if stop.is_set():
+            return id_, basis, None, "остановлено"
         try:
-            a = ask(stage, prompt, (), ANSWER_SCHEMA)
+            return id_, basis, ask(stage, prompt, (), ANSWER_SCHEMA), None
         except LLMUnavailable as e:
-            log(f"СТОП: {e}. Готово {done}, остальное продолжится при следующем запуске.")
-            return done
+            stop.set()
+            return id_, basis, None, f"СТОП: {e}"
         except LLMError as e:
-            log(f"  {id_}: пропуск ({e})")
+            return id_, basis, None, f"пропуск ({e})"
+
+    done = 0
+    pool = ThreadPoolExecutor(max_workers=stage.get("threads", 1))
+    for job in as_completed([pool.submit(work, *t) for t in tasks]):
+        id_, basis, a, error = job.result()
+        if error:
+            if error != "остановлено":
+                log(f"  {id_}: {error}")
             continue
         con.execute(
             "INSERT OR REPLACE INTO analyst VALUES (?,?,?,datetime('now','localtime'),?,?,?,?,?)",
@@ -166,4 +185,8 @@ def analyse(cfg, con, log=print, limit=None):
         con.commit()
         done += 1
         log(f"  {id_}: {a['verdict']} — {a['reason'][:100]}")
+    pool.shutdown()
+    if stop.is_set():
+        log(f"Готово {done}, остальное продолжится при следующем запуске.")
+    log(usage_line())
     return done

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from .llm import ask, LLMError, LLMUnavailable
+from .llm import ask, usage_line, LLMError, LLMUnavailable
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS vision (
@@ -195,10 +195,12 @@ def assess(cfg, con, root, log=print, limit=None):
     ensure_table(con)
     rows = con.execute(
         "SELECT l.* FROM listings l JOIN metrics m ON m.listing_id = l.id "
+        "LEFT JOIN benefit b ON b.listing_id = l.id "
         "WHERE l.active = 1 AND m.is_primary = 1 "
         "AND EXISTS (SELECT 1 FROM photos p WHERE p.listing_id = l.id) "
         "AND NOT EXISTS (SELECT 1 FROM vision v WHERE v.listing_id = l.id) "
-        "ORDER BY l.price / l.area").fetchall()      # сначала самые дешёвые за м²
+        # сначала самые дешёвые относительно аналогов — в том же порядке качаются фото
+        "ORDER BY b.raw_pct IS NULL, b.raw_pct DESC, l.price / l.area").fetchall()
     if limit:
         rows = rows[:limit]
     threads = stage.get("threads", 1)
@@ -255,6 +257,7 @@ def assess(cfg, con, root, log=print, limit=None):
         log(f"  {r['id']}: отделка {a['finish_level']}, доверие {a['trust']}, "
             f"расхождений {contradictions} — {a['summary'][:90]}")
     pool.shutdown()
+    log(usage_line())
     if stop.is_set():
         log(f"Готово {done}, остальное продолжится при следующем запуске.")
     return done

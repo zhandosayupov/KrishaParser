@@ -66,7 +66,8 @@ def now():
 def connect(path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(path)
+    # Этапы можно запускать одновременно (фото и оценка ИИ): ждём чужую запись до минуты, а не падаем.
+    con = sqlite3.connect(path, timeout=60)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     return con

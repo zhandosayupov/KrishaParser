@@ -29,6 +29,16 @@ class LLMUnavailable(LLMError):
     """Продолжать бессмысленно: нет входа, нет ключа, исчерпан лимит."""
 
 
+# Счётчик расхода за запуск. Стоимость условная: по подписке деньги не списываются,
+# но по ней видно, сколько лимита съел этап.
+USAGE = {"calls": 0, "tokens": 0, "usd": 0.0}
+
+
+def usage_line():
+    tokens = f"{USAGE['tokens']:,}".replace(",", " ")
+    return f"Запросов к ИИ: {USAGE['calls']}, токенов: {tokens}, условная стоимость: ${USAGE['usd']:.2f}"
+
+
 # ---------- Claude Code CLI (подписка, без API-ключа) ----------
 
 def _find_claude(stage):
@@ -39,34 +49,50 @@ def _find_claude(stage):
 
 
 def _ask_claude_cli(stage, prompt, images, schema):
-    # Картинки Claude открывает сам своим инструментом Read — даём ему пути к файлам.
-    if images:
-        files = "\n".join(str(Path(p).resolve()) for p in images)
-        prompt = (f"{prompt}\n\nСначала открой инструментом Read каждый из этих файлов "
-                  f"с изображениями, затем ответь:\n{files}")
+    # Картинки кладём прямо в запрос: так ответ приходит за один ход. Если давать Claude пути
+    # к файлам, он открывает их инструментом в несколько ходов, и лимит уходит в разы быстрее.
+    content = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                            "data": base64.b64encode(Path(p).read_bytes()).decode()}}
+               for p in images]
+    content.append({"type": "text", "text": prompt})
+    message = json.dumps({"type": "user", "message": {"role": "user", "content": content}})
     cmd = [_find_claude(stage), "-p",
-           "--output-format", "json",
+           "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
            "--model", stage.get("model", "sonnet"),
            "--json-schema", json.dumps(schema, ensure_ascii=False),
-           "--no-session-persistence"]
-    if images:      # инструмент чтения файлов нужен только для картинок
-        cmd += ["--tools", "Read", "--allowedTools", "Read",
-                "--add-dir", str(Path(images[0]).resolve().parent)]
-    else:
-        cmd += ["--tools", ""]
+           "--no-session-persistence", "--tools", "",
+           # Без этих ключей каждый запрос несёт с собой большую инструкцию Claude Code, плагины
+           # и подключения пользователя.
+           "--system-prompt", "Ты оцениваешь объявления о продаже квартир и отвечаешь строго по заданной схеме.",
+           "--strict-mcp-config", "--disable-slash-commands", "--setting-sources", ""]
     # Убираем ключи из окружения: иначе запрос молча уйдёт на платный API, а не на подписку.
     env = {k: v for k, v in os.environ.items()
            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
+    # «Размышления» модели съедают в несколько раз больше лимита, чем сам ответ.
+    # Включить: thinking_tokens в настройках этапа в config.yaml.
+    env["MAX_THINKING_TOKENS"] = str(stage.get("thinking_tokens", 0))
     try:
-        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+        proc = subprocess.run(cmd, input=message + chr(10), capture_output=True, text=True,
                               encoding="utf-8", env=env, timeout=stage.get("timeout_sec", 300))
     except subprocess.TimeoutExpired:
         raise LLMError("claude не ответил за отведённое время")
-    try:
-        out = json.loads(proc.stdout)
-    except json.JSONDecodeError:
+    # Вывод — поток строк JSON; итог лежит в строке с type = result.
+    out = None
+    for line in proc.stdout.splitlines():
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(item, dict) and item.get("type") == "result":
+            out = item
+    if out is None:
         raise LLMError(f"непонятный ответ claude: {(proc.stdout or proc.stderr)[:300]}")
 
+    u = out.get("usage") or {}
+    USAGE["calls"] += 1
+    USAGE["tokens"] += sum(u.get(k) or 0 for k in ("input_tokens", "cache_creation_input_tokens",
+                                                   "cache_read_input_tokens", "output_tokens"))
+    USAGE["usd"] += out.get("total_cost_usd") or 0
     text = str(out.get("result", ""))
     if out.get("is_error"):
         low = text.lower()

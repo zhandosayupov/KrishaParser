@@ -10,8 +10,13 @@
     python run.py stats     — краткая сводка по базе
 
 Другой набор настроек: добавьте  --config configs/golden_square.yaml
+
+Всё, что печатается в консоль, дописывается и в журнал data/logs/<настройки>_<команда>.log
+с отметкой времени — по нему видно, чем закончился запуск в фоне.
 """
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from krisha import db
 from krisha.analyst import analyse
@@ -76,6 +81,35 @@ def cmd_all(cfg, con):
     build_report(cfg, con, ROOT / cfg["paths"]["report"])
 
 
+class Tee:
+    """Дублирует вывод в файл журнала, перед каждой строкой ставит время."""
+
+    def __init__(self, stream, file):
+        self.stream, self.file, self.line_start = stream, file, True
+
+    def write(self, text):
+        self.stream.write(text)
+        for part in text.splitlines(keepends=True):
+            if self.line_start:
+                self.file.write(datetime.now().strftime("%d.%m %H:%M:%S  "))
+            self.file.write(part)
+            self.line_start = part.endswith(chr(10))
+        self.file.flush()
+
+    def flush(self):
+        self.stream.flush()
+
+
+def start_log(config_path, name):
+    """Открывает журнал запуска и направляет в него копию вывода и ошибок."""
+    folder = ROOT / "data" / "logs"
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = Path(config_path).stem if config_path else "config"
+    file = open(folder / f"{stem}_{name}.log", "a", encoding="utf-8")
+    sys.stdout, sys.stderr = Tee(sys.stdout, file), Tee(sys.stderr, file)
+    print(f"=== запуск: {' '.join(sys.argv[1:]) or 'all'}")
+
+
 COMMANDS = {"all": cmd_all, "collect": cmd_collect, "enrich": cmd_enrich,
             "photos": cmd_photos,
             "vision": cmd_vision, "analyst": cmd_analyst,
@@ -93,6 +127,9 @@ if __name__ == "__main__":
     name = args[0] if args else "all"
     if name not in COMMANDS:
         sys.exit(__doc__)
+    if name != "stats":
+        start_log(config_path, name)
     cfg = load_config(config_path)
     con = db.connect(ROOT / cfg["paths"]["database"])
     COMMANDS[name](cfg, con)
+    print("=== готово")

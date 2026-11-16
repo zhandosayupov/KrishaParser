@@ -72,13 +72,14 @@ def build_report(cfg, con, out_path, log=print):
         d["g_year"] = year_label(f["year"], edges)
         d["g_complex"] = f["complex"] or "ЖК не указан"
         d["g_district"] = f["district"] or "район не указан"
-        data.append(d)
+        # Пустые поля в файл не пишем: на большой базе это заметно уменьшает отчёт.
+        data.append({k: v for k, v in d.items() if v is not None})
 
     last_run = con.execute("SELECT finished_at FROM runs ORDER BY id DESC LIMIT 1").fetchone()
     meta = {"generated": last_run[0] if last_run else "", "count": len(data),
             "min_comps": cfg["comps"]["min_count"], "combine": cfg["benefit"]["combine"]}
     html = TEMPLATE.read_text(encoding="utf-8")
-    html = html.replace("/*DATA*/[]", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
+    html = html.replace("/*DATA*/[]", json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/"))
     html = html.replace("/*META*/{}", json.dumps(meta, ensure_ascii=False))
     Path(out_path).write_text(html, encoding="utf-8")
     log(f"Отчёт: {out_path} ({len(data)} объявлений)")

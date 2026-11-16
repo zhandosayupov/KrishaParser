@@ -48,6 +48,7 @@ tr.d td{white-space:normal;background:var(--bg);padding:10px 14px}
 .dgrid h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px;font-weight:600}
 .dgrid p{margin:0 0 6px}.calc{font-variant-numeric:tabular-nums;line-height:1.6}
 .note{color:var(--muted);font-size:12px;margin:10px 0}
+button.more{font:inherit;font-size:12px;display:block;width:100%;padding:7px;border:0;border-top:1px solid var(--line);background:var(--card);color:var(--accent);cursor:pointer}button.more:hover{background:var(--chip)}
 @media (max-width:900px){.dgrid{grid-template-columns:1fr}table{table-layout:auto}.wrap{overflow-x:auto}}
 </style>
 </head>
@@ -96,12 +97,15 @@ const COLS = [
   ['finish_level','Отделка 1–10',6,3,0,-1], ['trust','Дове­рие',4,3,1,1], ['vrank','Вердикт',6,3,0,-1]];
 DATA.forEach(d => { d.vrank = {look:3, doubt:2, skip:1}[d.verdict] || null; d.lever = (d.urgent || 0) + (d.bargain || 0) + (d.price_drop ? 1 : 0); });
 let tab = 'g_price', sortKey = 'benefit_pct', sortDir = -1, open = new Set();
+// Большие базы: строки рисуются только в раскрытых группах и порциями, иначе браузер не справится с десятками тысяч строк.
+const ROWS_STEP = 50, GROUPS_MAX = 300;
+let groups = {}, shown = {};
 
 function fill(id, values) { values.forEach(v => $(id).insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`)); }
 fill('rooms', [...new Set(DATA.map(d => d.rooms))].sort());
 fill('district', [...new Set(DATA.map(d => d.district).filter(Boolean))].sort());
 fill('seller', [...new Set(DATA.map(d => d.seller_type).filter(Boolean))].sort());
-TABS.forEach(([k, t]) => { const b = document.createElement('button'); b.textContent = t; b.dataset.k = k; b.onclick = () => { tab = k; render(); }; $('tabs').append(b); });
+TABS.forEach(([k, t]) => { const b = document.createElement('button'); b.textContent = t; b.dataset.k = k; b.onclick = () => { tab = k; shown = {}; render(); }; $('tabs').append(b); });
 $('meta').textContent = `Собрано ${META.count} объявлений · обновлено ${META.generated.replace('T', ' ')}`;
 $('comb').textContent = META.combine === 'min' ? 'самый осторожный из трёх' : 'средний из трёх';
 
@@ -143,7 +147,7 @@ function row(d) {
     <td style="white-space:normal">${marks(d)}</td>
     <td class="num sep">${pct(d.raw_complex)}</td><td class="num">${pct(d.raw_nearby)}</td><td class="num">${pct(d.raw_district)}</td>
     <td class="num">${pct(d.benefit_pct)}<br><span class="muted">${d.benefit_tg == null ? '' : mln(d.benefit_tg) + ' млн'}</span></td>
-    <td class="sep">${ai ? `<b>${d.finish_level}</b> ${LEVELS[d.finish_level]}${d.contradictions ? ` <span class="chip b">✗${d.contradictions}</span>` : ''}` : (d.level ? `<span class="muted">${d.level} со слов</span>` : '<span class="muted">—</span>')}</td>
+    <td class="sep">${ai && d.confidence === 'low' ? '<span class="muted" title="на фото нет интерьера: только планировка, рендеры или фасад">интерьер не показан</span>' : ai ? `<b>${d.finish_level}</b> ${LEVELS[d.finish_level]}${d.contradictions ? ` <span class="chip b">✗${d.contradictions}</span>` : ''}` : (d.level ? `<span class="muted">${d.level} со слов</span>` : '<span class="muted">—</span>')}</td>
     <td class="num">${ai ? d.trust + '/5' : '<span class="muted">—</span>'}</td><td>${v}</td></tr>`;
   if (open.has(d.id)) h += detail(d);
   return h;
@@ -190,25 +194,42 @@ function render() {
     [list.filter(d => d.verdict === 'look').length, 'ИИ советует смотреть'],
     [DATA.filter(d => !d.is_primary).length, 'копий скрыто']
   ].map(([v, t]) => `<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('');
-  const groups = {}; list.forEach(d => (groups[d[tab]] ||= []).push(d));
+  groups = {}; list.forEach(d => (groups[d[tab]] ||= []).push(d));
   let names = Object.keys(groups).sort(groupOrder);
   if (tab === 'g_complex' || tab === 'g_district') names.sort((a, b) => groups[b].length - groups[a].length);
+  const total = names.length; names = names.slice(0, GROUPS_MAX);
   const max = Math.max(1, ...names.map(n => groups[n].length)), wasOpen = new Set([...document.querySelectorAll('details.grp[open]')].map(e => e.dataset.n)), first = !document.querySelector('details.grp');
-  $('groups').innerHTML = names.map((n, i) => { const g = groups[n].sort(cmp), best = Math.max(...g.map(d => d.benefit_pct ?? -99));
-    return `<details class="grp" data-n="${esc(n)}" ${(first ? i < 2 || names.length < 4 : wasOpen.has(n)) ? 'open' : ''}><summary><h2>${esc(n)}</h2>
+  $('groups').innerHTML = names.map((n, i) => { const g = groups[n].sort(cmp), best = g.reduce((m, d) => Math.max(m, d.benefit_pct ?? -99), -99);
+    const isOpen = first ? i < 2 || names.length < 4 : wasOpen.has(n);
+    return `<details class="grp" data-n="${esc(n)}" ${isOpen ? 'open' : ''}><summary><h2>${esc(n)}</h2>
       <span class="s">${g.length} кв.</span><span class="s">медиана ${fmt(median(g.map(d => d.price_m2)))} ₸/м²</span>
       <span class="s">${best > -99 ? 'лучшая выгода ' + best.toFixed(0) + '%' : ''}</span>
       <span class="meter"><i style="width:${g.length / max * 100}%"></i></span></summary>
-      <div class="wrap"><table>${head()}<tbody>${g.map(row).join('')}</tbody></table></div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
+      <div class="wrap">${isOpen ? body(n) : ''}</div></details>`; }).join('') || '<p class="note">Под фильтры ничего не подошло.</p>';
+  if (total > names.length) $('groups').insertAdjacentHTML('beforeend', `<p class="note">Показаны ${names.length} самых крупных групп из ${total}. Остальные найдутся через фильтры и поиск.</p>`);
 }
+// Таблица одной группы: первые строки и кнопка «показать ещё».
+function body(n) {
+  const g = groups[n], k = Math.min(g.length, shown[n] || ROWS_STEP);
+  return `<table>${head()}<tbody>${g.slice(0, k).map(row).join('')}</tbody></table>` +
+    (k < g.length ? `<button class="more">Показать ещё ${Math.min(ROWS_STEP * 4, g.length - k)} (показано ${k} из ${g.length})</button>` : '');
+}
+function refill(grp) { grp.querySelector('.wrap').innerHTML = body(grp.dataset.n); }
+// Группа заполняется строками в момент раскрытия.
+$('groups').addEventListener('toggle', e => {
+  const grp = e.target; if (grp.open && grp.dataset.n in groups && !grp.querySelector('table')) refill(grp);
+}, true);
 $('groups').addEventListener('click', e => {
   const th = e.target.closest('th[data-k]');
-  if (th && th.dataset.k) { const c = COLS.find(c => c[0] === th.dataset.k); if (sortKey === c[0]) sortDir = -sortDir; else { sortKey = c[0]; sortDir = c[5]; } render(); return; }
+  if (th && th.dataset.k) { const c = COLS.find(c => c[0] === th.dataset.k); if (sortKey === c[0]) sortDir = -sortDir; else { sortKey = c[0]; sortDir = c[5]; } shown = {}; render(); return; }
+  const more = e.target.closest('button.more');
+  if (more) { const grp = more.closest('details.grp'), n = grp.dataset.n; shown[n] = (shown[n] || ROWS_STEP) + ROWS_STEP * 4; refill(grp); return; }
   if (e.target.closest('a')) return;
   const tr = e.target.closest('tr.r');
-  if (tr) { const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); render(); }
+  if (tr) { const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); refill(tr.closest('details.grp')); }
 });
-document.querySelectorAll('.bar select,.bar input').forEach(el => el.addEventListener('input', render));
+let timer;   // при наборе в поиске ждём паузу, чтобы не пересчитывать на каждую букву
+document.querySelectorAll('.bar select,.bar input').forEach(el => el.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { shown = {}; render(); }, 200); }));
 render();
 </script>
 </body>
